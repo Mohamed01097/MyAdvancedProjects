@@ -1,0 +1,17 @@
+{
+    "name": "Dynamic PDF Report Builder",
+    "version": "19.0.1.0.0",
+    "author": "MyAdvancedProjects",
+    "category": "Technical",
+    "summary": "No-code builder for simple dynamic PDF reports",
+    "depends": ["base", "web"],
+    "data": [
+        "security/ir.model.access.csv",
+        "data/report_paperformat_data.xml",
+        "report/dynamic_pdf_report_templates.xml",
+        "views/dynamic_pdf_report_views.xml",
+    ],
+    "installable": True,
+    "application": False,
+    "license": "LGPL-3",
+}

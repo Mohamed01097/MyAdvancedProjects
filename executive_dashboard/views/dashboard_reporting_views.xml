@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Scheduled Reports Views -->
+    <record id="view_dashboard_report_schedule_tree" model="ir.ui.view">
+        <field name="name">Dashboard Report Schedule List</field>
+        <field name="model">executive.dashboard.report.schedule</field>
+        <field name="arch" type="xml">
+            <list string="Dashboard Report Schedules">
+                <field name="name"/>
+                <field name="dashboard_name"/>
+                <field name="frequency"/>
+                <field name="send_time"/>
+                <field name="active"/>
+                <field name="next_run_datetime"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dashboard_report_schedule_form" model="ir.ui.view">
+        <field name="name">Dashboard Report Schedule Form</field>
+        <field name="model">executive.dashboard.report.schedule</field>
+        <field name="arch" type="xml">
+            <form string="Dashboard Report Schedule">
+                <header>
+                    <button name="action_run_now" type="object" string="Run Now" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Schedule Name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Configuration">
+                            <field name="active"/>
+                            <field name="dashboard_key"/>
+                            <field name="dashboard_name" readonly="1"/>
+                        </group>
+                        <group string="Schedule">
+                            <field name="frequency"/>
+                            <field name="send_time" help="Hour in 24h format. Use 14.5 for 14:30"/>
+                            <field name="day_of_week" invisible="frequency != 'weekly'"/>
+                            <field name="day_of_month" invisible="frequency != 'monthly'"/>
+                        </group>
+                    </group>
+                    <group string="Recipients">
+                        <field name="recipient_ids" nolabel="1"/>
+                        <field name="recipient_emails" placeholder="email1@example.com, email2@example.com"/>
+                    </group>
+                    <group string="Report Content">
+                        <group>
+                            <field name="format"/>
+                            <field name="include_kpis"/>
+                            <field name="include_tables"/>
+                            <field name="include_charts"/>
+                        </group>
+                    </group>
+                    <group string="Filters">
+                        <field name="filters_json" nolabel="1"/>
+                    </group>
+                    <group string="Status">
+                        <field name="company_id"/>
+                        <field name="user_id"/>
+                        <field name="state"/>
+                        <field name="last_run_datetime" readonly="1"/>
+                        <field name="next_run_datetime" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dashboard_report_schedule_search" model="ir.ui.view">
+        <field name="name">Dashboard Report Schedule Search</field>
+        <field name="model">executive.dashboard.report.schedule</field>
+        <field name="arch" type="xml">
+            <search string="Dashboard Report Schedules">
+                <field name="name"/>
+                <field name="dashboard_key"/>
+                <field name="frequency"/>
+                <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+                <filter name="inactive" string="Inactive" domain="[('active', '=', False)]"/>
+                <separator/>
+                <filter name="group_dashboard" string="Dashboard" context="{'group_by': 'dashboard_key'}"/>
+                <filter name="group_frequency" string="Frequency" context="{'group_by': 'frequency'}"/>
+                <filter name="group_state" string="State" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Report Logs Views -->
+    <record id="view_dashboard_report_log_tree" model="ir.ui.view">
+        <field name="name">Dashboard Report Log List</field>
+        <field name="model">executive.dashboard.report.log</field>
+        <field name="arch" type="xml">
+            <list string="Dashboard Report Logs">
+                <field name="name"/>
+                <field name="dashboard_name"/>
+                <field name="report_type"/>
+                <field name="format"/>
+                <field name="generated_by"/>
+                <field name="generated_datetime"/>
+                <field name="status"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dashboard_report_log_form" model="ir.ui.view">
+        <field name="name">Dashboard Report Log Form</field>
+        <field name="model">executive.dashboard.report.log</field>
+        <field name="arch" type="xml">
+            <form string="Dashboard Report Log">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Report Information">
+                            <field name="dashboard_key"/>
+                            <field name="dashboard_name"/>
+                            <field name="report_type"/>
+                            <field name="format"/>
+                            <field name="status" widget="badge"/>
+                        </group>
+                        <group string="Generated By">
+                            <field name="generated_by"/>
+                            <field name="generated_datetime"/>
+                            <field name="company_id"/>
+                        </group>
+                    </group>
+                    <group string="Recipients">
+                        <field name="recipients" nolabel="1"/>
+                    </group>
+                    <group string="Related Schedule" invisible="not schedule_id">
+                        <field name="schedule_id"/>
+                    </group>
+                    <group string="Error" invisible="status != 'failed'">
+                        <field name="error_message"/>
+                    </group>
+                    <group string="Attachments">
+                        <field name="attachment_ids" nolabel="1"/>
+                    </group>
+                    <group string="Applied Filters">
+                        <field name="filters_json" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dashboard_report_log_search" model="ir.ui.view">
+        <field name="name">Dashboard Report Log Search</field>
+        <field name="model">executive.dashboard.report.log</field>
+        <field name="arch" type="xml">
+            <search string="Dashboard Report Logs">
+                <field name="name"/>
+                <field name="dashboard_key"/>
+                <field name="report_type"/>
+                <field name="generated_by"/>
+                <filter name="success" string="Success" domain="[('status', '=', 'success')]"/>
+                <filter name="failed" string="Failed" domain="[('status', '=', 'failed')]"/>
+                <separator/>
+                <filter name="group_dashboard" string="Dashboard" context="{'group_by': 'dashboard_key'}"/>
+                <filter name="group_type" string="Report Type" context="{'group_by': 'report_type'}"/>
+                <filter name="group_status" string="Status" context="{'group_by': 'status'}"/>
+                <filter name="group_date" string="Generated Date" context="{'group_by': 'generated_datetime'}"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Send Report Wizard -->
+    <record id="view_dashboard_report_send_wizard_form" model="ir.ui.view">
+        <field name="name">Send Dashboard Report Wizard</field>
+        <field name="model">executive.dashboard.report.send.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Send Dashboard Report">
+                <group>
+                    <field name="dashboard_key" invisible="1"/>
+                    <group string="Report">
+                        <field name="dashboard_name" readonly="1"/>
+                        <field name="format"/>
+                    </group>
+                    <group string="Recipients">
+                        <field name="recipient_ids" nolabel="1"/>
+                        <field name="recipient_emails" placeholder="email1@example.com, email2@example.com"/>
+                    </group>
+                </group>
+                <group string="Message">
+                    <field name="subject" nolabel="1"/>
+                    <field name="message" nolabel="1"/>
+                </group>
+                <group string="Include In Report">
+                    <field name="include_kpis"/>
+                    <field name="include_tables"/>
+                    <field name="include_charts"/>
+                </group>
+                <field name="filters_json" invisible="1"/>
+                <footer>
+                    <button name="action_send_report" string="Send Report" type="object" class="oe_highlight"/>
+                    <button string="Cancel" class="oe_link" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Report Settings -->
+    <record id="view_executive_dashboard_report_settings_form" model="ir.ui.view">
+        <field name="name">Executive Dashboard Report Settings</field>
+        <field name="model">res.config.settings</field>
+        <field name="arch" type="xml">
+            <form string="Executive Dashboard Report Settings">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Executive Dashboard Report Settings</h1>
+                    </div>
+                    <group>
+                        <group string="Defaults">
+                            <field name="executive_dashboard_default_recipient_ids" widget="many2many_tags"/>
+                            <field name="executive_dashboard_default_frequency"/>
+                            <field name="executive_dashboard_default_export_max_rows"/>
+                        </group>
+                        <group string="Report Content">
+                            <field name="executive_dashboard_include_kpis"/>
+                            <field name="executive_dashboard_include_tables"/>
+                            <field name="executive_dashboard_include_charts"/>
+                            <field name="executive_dashboard_use_company_logo"/>
+                        </group>
+                    </group>
+                    <group string="PDF">
+                        <field name="executive_dashboard_pdf_footer_text"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="execute" string="Save" type="object" class="btn-primary"/>
+                    <button string="Discard" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Actions -->
+    <record id="action_dashboard_report_schedule" model="ir.actions.act_window">
+        <field name="name">Scheduled Reports</field>
+        <field name="res_model">executive.dashboard.report.schedule</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create a new dashboard report schedule</p>
+            <p>Schedule automated report generation and email delivery for dashboards.</p>
+        </field>
+    </record>
+
+    <record id="action_dashboard_report_log" model="ir.actions.act_window">
+        <field name="name">Report Logs</field>
+        <field name="res_model">executive.dashboard.report.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Dashboard report history</p>
+            <p>View all generated, shared, and scheduled dashboard reports.</p>
+        </field>
+    </record>
+
+    <record id="action_executive_dashboard_report_settings" model="ir.actions.act_window">
+        <field name="name">Report Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_executive_dashboard_report_settings_form"/>
+        <field name="target">current</field>
+        <field name="context">{'module': 'executive_dashboard'}</field>
+    </record>
+
+    <!-- Menu Items -->
+    <menuitem id="menu_reporting_root" name="Reporting" parent="menu_executive_dashboard_root" sequence="200" groups="base.group_user"/>
+
+    <menuitem id="menu_report_schedules" name="Scheduled Reports" parent="menu_reporting_root" action="action_dashboard_report_schedule" sequence="10" groups="executive_dashboard.group_dashboard_manager,base.group_system"/>
+
+    <menuitem id="menu_report_logs" name="Report Logs" parent="menu_reporting_root" action="action_dashboard_report_log" sequence="20"/>
+
+    <menuitem id="menu_dashboard_configuration" name="Configuration" parent="menu_executive_dashboard_root" sequence="300" groups="base.group_system"/>
+
+    <menuitem id="menu_dashboard_report_settings" name="Report Settings" parent="menu_dashboard_configuration" action="action_executive_dashboard_report_settings" sequence="10" groups="base.group_system"/>
+</odoo>

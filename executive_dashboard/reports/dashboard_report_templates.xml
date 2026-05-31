@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="dashboard_report_document" name="Executive Dashboard Report Document">
+        <t t-call="web.html_container">
+            <style>
+                .o_exec_report_page {
+                    font-family: Arial, sans-serif;
+                    color: #111827;
+                    font-size: 12px;
+                }
+                .o_exec_report_header {
+                    display: table;
+                    width: 100%;
+                    border-bottom: 2px solid #1f4e79;
+                    padding-bottom: 12px;
+                    margin-bottom: 18px;
+                }
+                .o_exec_report_header_info {
+                    display: table-cell;
+                    vertical-align: top;
+                }
+                .o_exec_report_logo {
+                    display: table-cell;
+                    width: 120px;
+                    text-align: right;
+                    vertical-align: top;
+                }
+                .o_exec_report_logo img {
+                    max-height: 72px;
+                    max-width: 120px;
+                }
+                .o_exec_report_title {
+                    margin: 0;
+                    color: #1f4e79;
+                    font-size: 24px;
+                    font-weight: 700;
+                }
+                .o_exec_report_subtitle {
+                    color: #4b5563;
+                    margin-top: 4px;
+                }
+                .o_exec_report_meta {
+                    width: 100%;
+                    margin: 0 0 16px 0;
+                    border-collapse: collapse;
+                }
+                .o_exec_report_meta td {
+                    padding: 5px 8px;
+                    border: 1px solid #e5e7eb;
+                }
+                .o_exec_report_meta td:first-child {
+                    width: 25%;
+                    font-weight: 700;
+                    background: #f3f4f6;
+                }
+                .o_exec_report_section {
+                    margin-top: 18px;
+                    page-break-inside: avoid;
+                }
+                .o_exec_report_section h2 {
+                    color: #1f4e79;
+                    font-size: 16px;
+                    border-bottom: 1px solid #bfdbfe;
+                    padding-bottom: 4px;
+                    margin: 0 0 8px 0;
+                }
+                .o_exec_report_kpi_grid {
+                    width: 100%;
+                }
+                .o_exec_report_kpi {
+                    display: inline-block;
+                    width: 23%;
+                    min-height: 58px;
+                    margin: 0 1% 8px 0;
+                    border: 1px solid #dbeafe;
+                    background: #f8fafc;
+                    padding: 10px;
+                    vertical-align: top;
+                }
+                .o_exec_report_kpi_label {
+                    color: #6b7280;
+                    font-size: 11px;
+                }
+                .o_exec_report_kpi_value {
+                    color: #1f4e79;
+                    font-size: 17px;
+                    font-weight: 700;
+                    margin-top: 4px;
+                }
+                .o_exec_report_table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 8px;
+                    page-break-inside: auto;
+                }
+                .o_exec_report_table th {
+                    background: #1f4e79;
+                    color: #fff;
+                    border: 1px solid #1f4e79;
+                    padding: 6px;
+                    font-weight: 700;
+                    text-align: left;
+                }
+                .o_exec_report_table td {
+                    border: 1px solid #e5e7eb;
+                    padding: 5px 6px;
+                    vertical-align: top;
+                }
+                .o_exec_report_table tr:nth-child(even) td {
+                    background: #f9fafb;
+                }
+                .o_exec_report_note,
+                .o_exec_report_footer {
+                    color: #6b7280;
+                    font-size: 11px;
+                }
+                .o_exec_report_footer {
+                    border-top: 1px solid #e5e7eb;
+                    margin-top: 24px;
+                    padding-top: 8px;
+                    text-align: center;
+                }
+            </style>
+            <div class="page o_exec_report_page">
+                <div class="o_exec_report_header">
+                    <div class="o_exec_report_header_info">
+                        <h1 class="o_exec_report_title" t-esc="report.get('title') or 'Dashboard Report'"/>
+                        <div class="o_exec_report_subtitle" t-esc="report.get('dashboard_name') or ''"/>
+                    </div>
+                    <div class="o_exec_report_logo" t-if="report.get('use_company_logo') and company.logo">
+                        <img t-att-src="image_data_uri(company.logo)" alt="Company Logo"/>
+                    </div>
+                </div>
+
+                <table class="o_exec_report_meta">
+                    <tbody>
+                        <tr>
+                            <td>Company</td>
+                            <td t-esc="report.get('company_name') or ''"/>
+                        </tr>
+                        <tr>
+                            <td>Generated By</td>
+                            <td t-esc="report.get('generated_by') or ''"/>
+                        </tr>
+                        <tr>
+                            <td>Generated Date/Time</td>
+                            <td t-esc="report.get('generated_datetime') or ''"/>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="o_exec_report_section">
+                    <h2>Applied Filters</h2>
+                    <table class="o_exec_report_table">
+                        <tbody>
+                            <tr t-if="not report.get('filters')">
+                                <td>No filters applied</td>
+                            </tr>
+                            <tr t-foreach="report.get('filters') or []" t-as="filter">
+                                <td><strong t-esc="filter.get('label')"/></td>
+                                <td t-esc="filter.get('value')"/>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="o_exec_report_section" t-if="report.get('kpis')">
+                    <h2>Key Performance Indicators</h2>
+                    <div class="o_exec_report_kpi_grid">
+                        <div class="o_exec_report_kpi" t-foreach="report.get('kpis')" t-as="kpi">
+                            <div class="o_exec_report_kpi_label" t-esc="kpi.get('label')"/>
+                            <div class="o_exec_report_kpi_value" t-esc="kpi.get('value')"/>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="o_exec_report_section" t-if="report.get('tables')">
+                    <h2>Main Tables</h2>
+                    <t t-foreach="report.get('tables')" t-as="table">
+                        <h3 t-esc="table.get('title')"/>
+                        <table class="o_exec_report_table">
+                            <thead>
+                                <tr>
+                                    <th t-foreach="table.get('headers')" t-as="header" t-esc="header"/>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-if="not table.get('rows')">
+                                    <td t-att-colspan="len(table.get('headers') or []) or 1">No data available</td>
+                                </tr>
+                                <tr t-foreach="table.get('rows')" t-as="line">
+                                    <td t-foreach="line" t-as="cell" t-esc="cell"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p class="o_exec_report_note" t-if="table.get('limited')">
+                            Data limited to first <t t-esc="table.get('limit')"/> rows.
+                        </p>
+                    </t>
+                </div>
+
+                <div class="o_exec_report_section" t-if="report.get('charts')">
+                    <h2>Chart Data</h2>
+                    <t t-foreach="report.get('charts')" t-as="chart">
+                        <h3 t-esc="chart.get('title')"/>
+                        <table class="o_exec_report_table">
+                            <thead>
+                                <tr>
+                                    <th t-foreach="chart.get('headers')" t-as="header" t-esc="header"/>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-if="not chart.get('rows')">
+                                    <td t-att-colspan="len(chart.get('headers') or []) or 1">No chart values available</td>
+                                </tr>
+                                <tr t-foreach="chart.get('rows')" t-as="line">
+                                    <td t-foreach="line" t-as="cell" t-esc="cell"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p class="o_exec_report_note" t-if="chart.get('limited')">
+                            Data limited to first <t t-esc="chart.get('limit')"/> rows.
+                        </p>
+                    </t>
+                </div>
+
+                <div class="o_exec_report_footer">
+                    <span t-esc="report.get('footer_text') or ''"/>
+                    <span> | Page </span><span class="page"/><span> / </span><span class="topage"/>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

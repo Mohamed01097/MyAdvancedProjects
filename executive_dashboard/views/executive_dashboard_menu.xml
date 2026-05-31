@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_executive_dashboard" model="ir.actions.client">
+        <field name="name">Executive Overview</field>
+        <field name="path">executive-dashboard</field>
+        <field name="tag">executive_dashboard.overview</field>
+    </record>
+
+    <record id="overview_action" model="ir.actions.client">
+        <field name="name">Executive Overview</field>
+        <field name="path">executive-overview</field>
+        <field name="tag">executive_dashboard.overview</field>
+    </record>
+
+    <record id="sales_action" model="ir.actions.client">
+        <field name="name">Sales Dashboard</field>
+        <field name="path">executive-sales-dashboard</field>
+        <field name="tag">executive_dashboard.sales</field>
+    </record>
+
+    <record id="crm_action" model="ir.actions.client">
+        <field name="name">CRM Dashboard</field>
+        <field name="path">executive-crm-dashboard</field>
+        <field name="tag">executive_dashboard.crm</field>
+    </record>
+
+    <record id="inventory_action" model="ir.actions.client">
+        <field name="name">Inventory Dashboard</field>
+        <field name="path">executive-inventory-dashboard</field>
+        <field name="tag">executive_dashboard.inventory</field>
+    </record>
+
+    <record id="purchase_action" model="ir.actions.client">
+        <field name="name">Purchase Dashboard</field>
+        <field name="path">executive-purchase-dashboard</field>
+        <field name="tag">executive_dashboard.purchase</field>
+    </record>
+
+    <record id="manufacturing_action" model="ir.actions.client">
+        <field name="name">Manufacturing Dashboard</field>
+        <field name="path">executive-manufacturing-dashboard</field>
+        <field name="tag">executive_dashboard.manufacturing</field>
+    </record>
+
+    <record id="maintenance_action" model="ir.actions.client">
+        <field name="name">Maintenance Dashboard</field>
+        <field name="path">executive-maintenance-dashboard</field>
+        <field name="tag">executive_dashboard.maintenance</field>
+    </record>
+
+    <record id="hr_action" model="ir.actions.client">
+        <field name="name">HR Dashboard</field>
+        <field name="path">executive-hr-dashboard</field>
+        <field name="tag">executive_dashboard.hr</field>
+    </record>
+
+    <record id="helpdesk_action" model="ir.actions.client">
+        <field name="name">Helpdesk Dashboard</field>
+        <field name="path">executive-helpdesk-dashboard</field>
+        <field name="tag">executive_dashboard.helpdesk</field>
+    </record>
+
+    <record id="pos_action" model="ir.actions.client">
+        <field name="name">POS Dashboard</field>
+        <field name="path">executive-pos-dashboard</field>
+        <field name="tag">executive_dashboard.pos</field>
+    </record>
+
+    <record id="website_action" model="ir.actions.client">
+        <field name="name">Website Dashboard</field>
+        <field name="path">executive-website-dashboard</field>
+        <field name="tag">executive_dashboard.website</field>
+    </record>
+
+    <record id="alerts_action" model="ir.actions.client">
+        <field name="name">Alerts Center</field>
+        <field name="path">executive-alerts-center</field>
+        <field name="tag">executive_dashboard.alerts</field>
+    </record>
+
+    <menuitem
+        id="menu_executive_dashboard_root"
+        name="Dashboards"
+        sequence="37"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_executive_dashboard"
+        name="Executive Overview"
+        parent="menu_executive_dashboard_root"
+        action="overview_action"
+        sequence="10"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_sales_dashboard"
+        name="Sales Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="sales_action"
+        sequence="20"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_crm_dashboard"
+        name="CRM Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="crm_action"
+        sequence="30"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_inventory_dashboard"
+        name="Inventory Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="inventory_action"
+        sequence="40"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_purchase_dashboard"
+        name="Purchase Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="purchase_action"
+        sequence="50"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_manufacturing_dashboard"
+        name="Manufacturing Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="manufacturing_action"
+        sequence="60"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_maintenance_dashboard"
+        name="Maintenance Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="maintenance_action"
+        sequence="70"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_hr_dashboard"
+        name="HR Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="hr_action"
+        sequence="80"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_helpdesk_dashboard"
+        name="Helpdesk Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="helpdesk_action"
+        sequence="90"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_pos_dashboard"
+        name="POS Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="pos_action"
+        sequence="100"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_website_dashboard"
+        name="Website Dashboard"
+        parent="menu_executive_dashboard_root"
+        action="website_action"
+        sequence="110"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_alerts_root"
+        name="Alerts"
+        parent="menu_executive_dashboard_root"
+        sequence="120"
+        groups="base.group_user"/>
+
+    <menuitem
+        id="menu_alerts_center"
+        name="Alerts Center"
+        parent="menu_alerts_root"
+        action="alerts_action"
+        sequence="10"
+        groups="base.group_user"/>
+</odoo>

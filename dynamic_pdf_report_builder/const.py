@@ -1,0 +1,51 @@
+ALLOWED_FIELD_TYPES = (
+    "char",
+    "text",
+    "html",
+    "integer",
+    "float",
+    "monetary",
+    "date",
+    "datetime",
+    "boolean",
+    "selection",
+    "many2one",
+)
+
+REPORT_TEMPLATE_XML_ID = "dynamic_pdf_report_builder.dynamic_pdf_report_template"
+
+PAPERFORMAT_XML_IDS = {
+    "a4": "dynamic_pdf_report_builder.paperformat_dynamic_report_a4",
+    "a5": "dynamic_pdf_report_builder.paperformat_dynamic_report_a5",
+}
+
+PAPERFORMAT_VALUES = {
+    "a4": {
+        "name": "Dynamic Report A4",
+        "format": "A4",
+        "page_height": 0,
+        "page_width": 0,
+        "orientation": "Portrait",
+        "margin_top": 20,
+        "margin_bottom": 18,
+        "margin_left": 10,
+        "margin_right": 10,
+        "header_line": False,
+        "header_spacing": 10,
+        "dpi": 90,
+    },
+    "a5": {
+        "name": "Dynamic Report A5",
+        "format": "A5",
+        "page_height": 0,
+        "page_width": 0,
+        "orientation": "Portrait",
+        "margin_top": 15,
+        "margin_bottom": 14,
+        "margin_left": 8,
+        "margin_right": 8,
+        "header_line": False,
+        "header_spacing": 8,
+        "dpi": 90,
+    },
+}

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="executive_dashboard.DashboardExportToolbar">
+        <div class="o_exec_export_toolbar" role="toolbar" t-att-aria-label="props.dashboardTitle + ' report actions'">
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    t-att-disabled="isLoading('excel')"
+                    t-on-click="onExportExcel"
+                    title="Export to Excel">
+                <i t-att-class="isLoading('excel') ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-file-excel-o'"/>
+                <span>Excel</span>
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    t-att-disabled="isLoading('pdf')"
+                    t-on-click="onExportPDF"
+                    title="Export to PDF">
+                <i t-att-class="isLoading('pdf') ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-file-pdf-o'"/>
+                <span>PDF</span>
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    t-att-disabled="isLoading('print')"
+                    t-on-click="onPrintSnapshot"
+                    title="Print Snapshot">
+                <i t-att-class="isLoading('print') ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-print'"/>
+                <span>Print</span>
+            </button>
+            <button type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    t-att-disabled="isLoading('share')"
+                    t-on-click="onShareSnapshot"
+                    title="Share Snapshot">
+                <i t-att-class="isLoading('share') ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-share-alt'"/>
+                <span>Share</span>
+            </button>
+        </div>
+    </t>
+</templates>

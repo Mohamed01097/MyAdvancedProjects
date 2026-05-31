@@ -1,0 +1,620 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="executive_dashboard.DashboardChart">
+        <div class="o_exec_chart_canvas">
+            <canvas t-ref="canvas"/>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.KpiCard">
+        <button type="button" class="o_exec_kpi_card"
+                t-att-disabled="!this.actionKey"
+                t-on-click="() => this.props.onOpen(this.actionKey)">
+            <span class="o_exec_kpi_label" t-esc="props.kpi.label"/>
+            <span class="o_exec_kpi_value" t-esc="props.formatKpi(props.kpi)"/>
+        </button>
+    </t>
+
+    <t t-name="executive_dashboard.DepartmentCard">
+        <article class="o_exec_department_card">
+            <div>
+                <h3 t-esc="props.card.name"/>
+                <span class="o_exec_department_status" t-esc="props.card.status_text"/>
+            </div>
+            <div class="o_exec_department_metrics">
+                <div>
+                    <span t-esc="props.card.main_label"/>
+                    <strong t-esc="props.formatValue(props.card.main_value)"/>
+                </div>
+                <div>
+                    <span>Alerts</span>
+                    <strong t-esc="props.formatValue(props.card.alert_count)"/>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm"
+                    t-on-click="() => props.onOpen(props.card.action_xmlid)">
+                Open Dashboard
+            </button>
+        </article>
+    </t>
+
+    <t t-name="executive_dashboard.DashboardFilters">
+        <div class="o_exec_filters">
+            <t t-foreach="props.fields" t-as="field" t-key="field.name">
+                <label>
+                    <span t-esc="field.label"/>
+                    <input t-if="field.type === 'date'" type="date" class="form-control"
+                           t-att-data-filter="field.name"
+                           t-att-value="props.filters[field.name] || ''"
+                           t-on-change="onFilterChange"/>
+                    <select t-else="" class="form-select"
+                            t-att-data-filter="field.name"
+                            t-att-value="props.filters[field.name] || ''"
+                            t-on-change="onFilterChange">
+                        <option value="" t-esc="field.placeholder"/>
+                        <t t-foreach="this.getOptions(field)" t-as="option" t-key="option.id">
+                            <option t-att-value="option.id"
+                                    t-att-selected="props.filters[field.name] == option.id">
+                                <t t-esc="this.optionLabel(option, field)"/>
+                            </option>
+                        </t>
+                    </select>
+                </label>
+            </t>
+            <button t-if="props.hasActiveFilters" type="button"
+                    class="btn btn-secondary o_exec_clear_filters"
+                    t-on-click="props.onClear">
+                Clear
+            </button>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.LoadingState">
+        <div class="o_exec_loading">
+            <i class="fa fa-circle-o-notch fa-spin"/>
+            <span t-esc="props.label || 'Loading dashboard'"/>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.AlertPreview">
+        <article class="o_exec_panel o_exec_alert_preview">
+            <header><h2>Related Alerts</h2></header>
+            <div class="table-responsive">
+                <table class="table table-hover o_exec_table o_exec_alert_table">
+                    <thead>
+                        <tr>
+                            <th>Alert Type</th>
+                            <th>Severity</th>
+                            <th>Related Document</th>
+                            <th>Department</th>
+                            <th>Responsible User</th>
+                            <th class="text-end">Delay Days</th>
+                            <th>Message</th>
+                            <th/>
+                            <th t-if="props.onActivity"/>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-if="!props.alerts.length">
+                            <td t-att-colspan="props.onActivity ? 9 : 8" class="o_exec_empty">No alerts</td>
+                        </tr>
+                        <tr t-foreach="props.alerts" t-as="row" t-key="row.id"
+                            class="o_exec_clickable_row" t-on-click="() => props.onOpen(row)">
+                            <td class="fw-semibold" t-esc="row.alert_type"/>
+                            <td><span t-att-class="'badge ' + this.severityClass(row.severity_key)" t-esc="row.severity"/></td>
+                            <td t-esc="row.related_document"/>
+                            <td t-esc="row.department"/>
+                            <td t-esc="row.responsible_user"/>
+                            <td class="text-end" t-esc="row.delay_days"/>
+                            <td t-esc="row.message"/>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        t-on-click.stop="() => props.onOpen(row)">Open</button>
+                            </td>
+                            <td t-if="props.onActivity" class="text-end">
+                                <button type="button" class="btn btn-sm btn-primary"
+                                        t-att-disabled="!row.can_create_activity"
+                                        t-on-click.stop="() => props.onActivity(row)">Activity</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    </t>
+
+    <t t-name="executive_dashboard.OverviewDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace o_exec_overview">
+            <div class="o_exec_header">
+                <div>
+                    <h1>Executive Overview</h1>
+                    <p>Workspace summary for sales, CRM, inventory, purchase, manufacturing, maintenance, HR, helpdesk, POS, website, and alerts.</p>
+                </div>
+                <div class="o_exec_header_actions">
+                    <span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span>
+                    <DashboardExportToolbar dashboardKey="'overview'" dashboardTitle="'Executive Overview'" filters="state.filters"/>
+                    <button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh">
+                        <i class="fa fa-refresh"/> Refresh
+                    </button>
+                </div>
+            </div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields"
+                              onChange.bind="onFilterChange" onClear.bind="clearFilters"
+                              hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading overview'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section">
+                    <div class="o_exec_kpi_grid">
+                        <KpiCard t-foreach="this.data.overview_kpis || []" t-as="kpi" t-key="kpi.key"
+                                 kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/>
+                    </div>
+                </section>
+                <section class="o_exec_section">
+                    <div class="o_exec_section_header"><h2>Departments</h2></div>
+                    <div class="o_exec_department_grid">
+                        <DepartmentCard t-foreach="this.data.department_cards || []" t-as="card" t-key="card.key"
+                                        card="card" formatValue.bind="formatValue" onOpen.bind="openDashboard"/>
+                    </div>
+                </section>
+                <section class="o_exec_section">
+                    <AlertPreview alerts="this.alertsPreview" onOpen.bind="openAlert" onActivity.bind="createAlertActivity"/>
+                </section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.SalesDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header">
+                <div><h1>Sales Dashboard</h1><p>Sales KPIs, delivery delays, sales trends, and salesperson performance.</p></div>
+                <div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'sales'" dashboardTitle="'Sales Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div>
+            </div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading sales dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section">
+                    <div class="o_exec_kpi_grid">
+                        <KpiCard t-foreach="this.data.sales_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/>
+                    </div>
+                </section>
+                <section class="o_exec_section">
+                    <div class="o_exec_chart_grid">
+                        <article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel">
+                            <header><h3 t-esc="chart.title"/></header>
+                            <t t-if="state.chartjs and this.chartHasData(chart)">
+                                <DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/>
+                            </t>
+                            <div t-else="" class="o_exec_chart_fallback">
+                                <t t-if="chart.datasets">
+                                    <t t-foreach="chart.data" t-as="point" t-key="point.label">
+                                        <div class="o_exec_fallback_group">
+                                            <div class="o_exec_bar_group_label" t-esc="point.label"/>
+                                            <t t-foreach="chart.datasets" t-as="dataset" t-key="dataset.key">
+                                                <button type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, this.getDatasetExtra(chart, point_index, dataset))">
+                                                    <span class="o_exec_bar_name" t-esc="dataset.label"/>
+                                                    <span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(dataset.values[point_index], this.maxChartValue(chart))"/></span>
+                                                    <span class="o_exec_bar_value" t-esc="this.formatValue(dataset.values[point_index], chart.metric)"/>
+                                                </button>
+                                            </t>
+                                        </div>
+                                    </t>
+                                </t>
+                                <t t-else="">
+                                    <button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})">
+                                        <span class="o_exec_bar_name" t-esc="point.label"/>
+                                        <span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span>
+                                        <span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/>
+                                    </button>
+                                </t>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+                <section class="o_exec_section">
+                    <article class="o_exec_panel">
+                        <header><h2>Delayed Sales</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table">
+                                <thead><tr><th>Document Name</th><th>Type</th><th>Customer</th><th>Salesperson</th><th>Order Date</th><th>Expected/Commitment Date</th><th class="text-end">Delay Days</th><th class="text-end">Amount</th><th>State</th><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.delayed_sales || []).length"><td colspan="10" class="o_exec_empty">No delayed quotations or sales orders</td></tr>
+                                    <tr t-foreach="this.data.delayed_sales || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openSaleRow(row.id)">
+                                        <td class="fw-semibold" t-esc="row.name"/><td t-esc="row.type"/><td t-esc="row.partner"/><td t-esc="row.salesperson"/><td t-esc="row.order_date"/><td t-esc="row.expected_date"/><td class="text-end" t-esc="row.delay_days"/><td class="text-end" t-esc="this.formatValue(row.amount_total, 'monetary')"/><td><span t-att-class="'badge ' + this.statusClass(row.state)" t-esc="row.state_label"/></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openSaleRow(row.id)">Open</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+                <section class="o_exec_section"><AlertPreview alerts="this.alertsPreview" onOpen.bind="openAlert" onActivity.bind="createAlertActivity"/></section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.CrmDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header">
+                <div><h1>CRM Dashboard</h1><p>Lead, opportunity, conversion, expected revenue, and pipeline performance.</p></div>
+                <div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'crm'" dashboardTitle="'CRM Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div>
+            </div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading CRM dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_crm"><KpiCard t-foreach="this.data.crm_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section o_exec_tables">
+                    <article class="o_exec_panel">
+                        <header><h2>CRM Pipeline Summary</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table">
+                                <thead><tr><th>Stage</th><th class="text-end">Opportunities</th><th class="text-end">Expected Revenue</th><th class="text-end">Won Count</th><th>Team</th></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.pipeline_summary || []).length"><td colspan="5" class="o_exec_empty">No CRM pipeline data</td></tr>
+                                    <tr t-foreach="this.data.pipeline_summary || []" t-as="row" t-key="(row.stage_id || 'no-stage') + '-' + (row.team_id || 'no-team')" class="o_exec_clickable_row" t-on-click="() => this.openPipelineRow(row)">
+                                        <td class="fw-semibold" t-esc="row.stage"/><td class="text-end" t-esc="this.formatValue(row.count)"/><td class="text-end" t-esc="this.formatValue(row.expected_revenue, 'monetary')"/><td class="text-end" t-esc="this.formatValue(row.won_count)"/><td t-esc="row.team"/>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                    <article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel">
+                        <header><h3 t-esc="chart.title"/></header>
+                        <t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t>
+                        <div t-else="" class="o_exec_chart_fallback">
+                            <button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})">
+                                <span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/>
+                            </button>
+                        </div>
+                    </article>
+                </section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.InventoryDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>Inventory Dashboard</h1><p>Stockable products, shortages, receipts, deliveries, and inventory status.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'inventory'" dashboardTitle="'Inventory Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading inventory dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_inventory"><KpiCard t-foreach="this.data.inventory_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section">
+                    <div class="o_exec_chart_grid">
+                        <article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel">
+                            <header><h3 t-esc="chart.title"/></header>
+                            <t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t>
+                            <div t-else="" class="o_exec_chart_fallback"><button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})"><span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/></button></div>
+                        </article>
+                    </div>
+                </section>
+                <section class="o_exec_section o_exec_tables_wide">
+                    <article class="o_exec_panel">
+                        <header><h2>Missing Materials / Shortages</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_shortage_table">
+                                <thead><tr><th>Product / Raw Material</th><th class="text-end">Required Qty</th><th class="text-end">Available Qty</th><th class="text-end">Shortage Qty</th><th>Related Document</th><th>Document Type</th><th>Responsible User</th><th>Suggested Vendor</th><th/><th/><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.missing_materials || []).length"><td colspan="11" class="o_exec_empty">No missing materials or shortages</td></tr>
+                                    <tr t-foreach="this.data.missing_materials || []" t-as="row" t-key="row.key" class="o_exec_clickable_row o_exec_shortage_row" t-on-click="() => this.openShortageRelated(row)">
+                                        <td class="fw-semibold" t-esc="row.product"/><td class="text-end"><t t-esc="this.formatValue(row.required_qty, 'float')"/> <t t-esc="row.uom"/></td><td class="text-end"><t t-esc="this.formatValue(row.available_qty, 'float')"/> <t t-esc="row.uom"/></td><td class="text-end"><span class="badge text-bg-danger" t-esc="this.formatValue(row.shortage_qty, 'float')"/></td><td t-esc="row.related_document"/><td t-esc="row.document_type"/><td t-esc="row.responsible_user"/><td t-esc="row.suggested_vendor"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openShortageProduct(row)">Product</button></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openShortageRelated(row)">Open</button></td><td class="text-end"><button type="button" class="btn btn-sm btn-primary" t-on-click.stop="() => this.createShortageActivity(row)">Activity</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+                <section class="o_exec_section"><AlertPreview alerts="this.alertsPreview" onOpen.bind="openAlert" onActivity.bind="createAlertActivity"/></section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.PurchaseDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>Purchase Dashboard</h1><p>RFQs, purchase orders, receipts, vendor performance, and purchasing charts.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'purchase'" dashboardTitle="'Purchase Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading purchase dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_purchase"><KpiCard t-foreach="this.data.purchase_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section"><div class="o_exec_chart_grid"><article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel"><header><h3 t-esc="chart.title"/></header><t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t><div t-else="" class="o_exec_chart_fallback"><button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})"><span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/></button></div></article></div></section>
+                <section class="o_exec_section o_exec_tables">
+                    <article class="o_exec_panel">
+                        <header><h2>Pending Receipts</h2></header>
+                        <div class="table-responsive"><table class="table table-hover o_exec_table"><thead><tr><th>Purchase Order</th><th>Vendor</th><th>Expected Date</th><th class="text-end">Delay Days</th><th class="text-end">Total Amount</th><th>Receipt Status</th><th>Responsible Buyer</th><th/><th/></tr></thead><tbody><tr t-if="!(this.data.pending_receipts || []).length"><td colspan="9" class="o_exec_empty">No pending receipts</td></tr><tr t-foreach="this.data.pending_receipts || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openPendingReceiptPo(row)"><td class="fw-semibold" t-esc="row.purchase_order"/><td t-esc="row.vendor"/><td t-esc="row.expected_date"/><td class="text-end"><span t-att-class="'badge ' + (row.delay_days ? 'text-bg-danger' : 'text-bg-success')" t-esc="row.delay_days"/></td><td class="text-end" t-esc="this.formatValue(row.total_amount, 'monetary')"/><td t-esc="row.receipt_status"/><td t-esc="row.buyer"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openPendingReceiptPo(row)">Open PO</button></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-att-disabled="!row.picking_id" t-on-click.stop="() => this.openPendingReceiptPicking(row)">Open Receipt</button></td></tr></tbody></table></div>
+                    </article>
+                    <article class="o_exec_panel">
+                        <header><h2>Vendor Performance</h2></header>
+                        <div class="table-responsive"><table class="table table-hover o_exec_table"><thead><tr><th>Vendor</th><th class="text-end">PO Count</th><th class="text-end">Purchase Amount</th><th class="text-end">On-time Delivery %</th><th class="text-end">Qty Fulfillment %</th><th class="text-end">Avg Delay Days</th><th class="text-end">Delayed Orders</th><th class="text-end">Open Orders</th></tr></thead><tbody><tr t-if="!(this.data.vendor_performance || []).length"><td colspan="8" class="o_exec_empty">No vendor performance data</td></tr><tr t-foreach="this.data.vendor_performance || []" t-as="row" t-key="row.vendor_id" class="o_exec_clickable_row" t-on-click="() => this.openVendorRow(row)"><td class="fw-semibold" t-esc="row.vendor"/><td class="text-end" t-esc="this.formatValue(row.purchase_orders_count)"/><td class="text-end" t-esc="this.formatValue(row.total_purchase_amount, 'monetary')"/><td class="text-end" t-esc="this.formatValue(row.on_time_delivery, 'percentage')"/><td class="text-end" t-esc="this.formatValue(row.quantity_fulfillment, 'percentage')"/><td class="text-end" t-esc="this.formatValue(row.average_delay_days)"/><td class="text-end" t-esc="this.formatValue(row.delayed_orders_count)"/><td class="text-end" t-esc="this.formatValue(row.open_vendor_orders)"/></tr></tbody></table></div>
+                    </article>
+                </section>
+                <section class="o_exec_section"><AlertPreview alerts="this.alertsPreview" onOpen.bind="openAlert" onActivity.bind="createAlertActivity"/></section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.ManufacturingDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>Manufacturing Dashboard</h1><p>Manufacturing KPIs, raw material shortages, work centers, and production charts.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'manufacturing'" dashboardTitle="'Manufacturing Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading manufacturing dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_manufacturing"><KpiCard t-foreach="this.data.manufacturing_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section"><div class="o_exec_subsection_title">Work Center KPIs</div><div class="o_exec_kpi_grid o_exec_kpi_grid_workcenter"><KpiCard t-foreach="this.data.workcenter_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section"><div class="o_exec_chart_grid"><article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel"><header><h3 t-esc="chart.title"/></header><t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t><div t-else="" class="o_exec_chart_fallback"><button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})"><span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/></button></div></article></div></section>
+                <section class="o_exec_section"><article class="o_exec_panel"><header><h2>Manufacturing Orders Overview</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_mrp_order_table"><thead><tr><th>Manufacturing Order</th><th>Product</th><th class="text-end">Quantity To Produce</th><th class="text-end">Quantity Produced</th><th class="text-end">Progress %</th><th>Start Date</th><th>Deadline</th><th class="text-end">Delay Days</th><th>State</th><th>Responsible</th><th/></tr></thead><tbody><tr t-if="!(this.data.manufacturing_orders || []).length"><td colspan="11" class="o_exec_empty">No manufacturing orders</td></tr><tr t-foreach="this.data.manufacturing_orders || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openManufacturingOrder(row)"><td class="fw-semibold" t-esc="row.name"/><td t-esc="row.product"/><td class="text-end" t-esc="this.formatValue(row.qty_to_produce, 'float')"/><td class="text-end" t-esc="this.formatValue(row.qty_produced, 'float')"/><td class="text-end" t-esc="this.formatValue(row.progress, 'percentage')"/><td t-esc="row.start_date"/><td t-esc="row.deadline"/><td class="text-end"><span t-att-class="'badge ' + (row.delay_days ? 'text-bg-danger' : 'text-bg-success')" t-esc="row.delay_days"/></td><td><span t-att-class="'badge ' + this.statusClass(row.state)" t-esc="row.state_label"/></td><td t-esc="row.responsible"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openManufacturingOrder(row)">Open</button></td></tr></tbody></table></div></article></section>
+                <section class="o_exec_section o_exec_tables_wide"><article class="o_exec_panel"><header><h2>Manufacturing Missing Raw Materials</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_mrp_shortage_table"><thead><tr><th>Manufacturing Order</th><th>Raw Material</th><th class="text-end">Required Qty</th><th class="text-end">Available Qty</th><th class="text-end">Reserved Qty</th><th class="text-end">Shortage Qty</th><th>Responsible</th><th>Suggested Vendor</th><th/><th/><th/></tr></thead><tbody><tr t-if="!(this.data.manufacturing_shortages || []).length"><td colspan="11" class="o_exec_empty">No manufacturing raw material shortages</td></tr><tr t-foreach="this.data.manufacturing_shortages || []" t-as="row" t-key="row.key" class="o_exec_clickable_row o_exec_mrp_shortage_row" t-on-click="() => this.openManufacturingShortageMo(row)"><td class="fw-semibold" t-esc="row.manufacturing_order"/><td t-esc="row.raw_material"/><td class="text-end"><t t-esc="this.formatValue(row.required_qty, 'float')"/> <t t-esc="row.uom"/></td><td class="text-end"><t t-esc="this.formatValue(row.available_qty, 'float')"/> <t t-esc="row.uom"/></td><td class="text-end"><t t-esc="this.formatValue(row.reserved_qty, 'float')"/> <t t-esc="row.uom"/></td><td class="text-end"><span class="badge text-bg-danger" t-esc="this.formatValue(row.shortage_qty, 'float')"/></td><td t-esc="row.responsible"/><td t-esc="row.suggested_vendor"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openManufacturingShortageMo(row)">Open MO</button></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openManufacturingShortageProduct(row)">Product</button></td><td class="text-end"><button type="button" class="btn btn-sm btn-primary" t-on-click.stop="() => this.createManufacturingShortageActivity(row)">Activity</button></td></tr></tbody></table></div></article></section>
+                <section class="o_exec_section"><article class="o_exec_panel"><header><h2>Work Center Performance</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_workcenter_table"><thead><tr><th>Work Center</th><th class="text-end">Active Work Orders</th><th class="text-end">Done Work Orders</th><th class="text-end">Produced Qty</th><th class="text-end">Expected Duration</th><th class="text-end">Real Duration</th><th class="text-end">Efficiency %</th><th class="text-end">Delayed Work Orders</th><th/></tr></thead><tbody><tr t-if="!(this.data.workcenter_performance || []).length"><td colspan="9" class="o_exec_empty">No work center performance data</td></tr><tr t-foreach="this.data.workcenter_performance || []" t-as="row" t-key="row.workcenter_id" class="o_exec_clickable_row" t-on-click="() => this.openWorkcenter(row)"><td class="fw-semibold" t-esc="row.workcenter"/><td class="text-end" t-esc="this.formatValue(row.active_work_orders)"/><td class="text-end" t-esc="this.formatValue(row.done_work_orders)"/><td class="text-end" t-esc="this.formatValue(row.produced_qty, 'float')"/><td class="text-end" t-esc="this.formatValue(row.expected_duration, 'float')"/><td class="text-end" t-esc="this.formatValue(row.real_duration, 'float')"/><td class="text-end" t-esc="this.formatValue(row.efficiency, 'percentage')"/><td class="text-end"><span t-att-class="'badge ' + (row.delayed_work_orders ? 'text-bg-danger' : 'text-bg-success')" t-esc="row.delayed_work_orders"/></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openWorkcenter(row)">Open</button></td></tr></tbody></table></div></article></section>
+                <section class="o_exec_section"><AlertPreview alerts="this.alertsPreview" onOpen.bind="openAlert" onActivity.bind="createAlertActivity"/></section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.MaintenanceDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>Maintenance Dashboard</h1><p>Maintenance requests, equipment status, teams, delays, and monthly trends.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'maintenance'" dashboardTitle="'Maintenance Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading maintenance dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_maintenance"><KpiCard t-foreach="this.data.maintenance_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section"><div class="o_exec_chart_grid"><article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel"><header><h3 t-esc="chart.title"/></header><t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t><div t-else="" class="o_exec_chart_fallback"><button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})"><span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/></button></div></article></div></section>
+                <section class="o_exec_section"><article class="o_exec_panel"><header><h2>Maintenance Requests Overview</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_maintenance_table"><thead><tr><th>Request</th><th>Equipment</th><th>Category</th><th>Maintenance Team</th><th>Responsible</th><th>Scheduled Date</th><th>Close Date</th><th class="text-end">Delay Days</th><th>Stage</th><th>Priority</th><th/></tr></thead><tbody><tr t-if="!(this.data.maintenance_requests || []).length"><td colspan="11" class="o_exec_empty">No maintenance requests</td></tr><tr t-foreach="this.data.maintenance_requests || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openMaintenanceRequest(row)"><td class="fw-semibold" t-esc="row.name"/><td t-esc="row.equipment"/><td t-esc="row.category"/><td t-esc="row.maintenance_team"/><td t-esc="row.responsible"/><td t-esc="row.scheduled_date"/><td t-esc="row.close_date"/><td class="text-end"><span t-att-class="'badge ' + (row.delay_days ? 'text-bg-danger' : 'text-bg-success')" t-esc="row.delay_days"/></td><td><span t-att-class="'badge ' + (row.stage_done ? 'text-bg-success' : 'text-bg-info')" t-esc="row.stage"/></td><td t-esc="row.priority"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openMaintenanceRequest(row)">Open</button></td></tr></tbody></table></div></article></section>
+                <section class="o_exec_section"><article class="o_exec_panel"><header><h2>Equipment Status</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_equipment_table"><thead><tr><th>Equipment</th><th>Technician</th><th>Maintenance Team</th><th class="text-end">Current Open Requests</th><th>Last Maintenance Date</th><th>Next Preventive Maintenance</th><th class="text-end">Downtime Hours</th><th>Status</th><th/></tr></thead><tbody><tr t-if="!(this.data.equipment_status || []).length"><td colspan="9" class="o_exec_empty">No equipment status data</td></tr><tr t-foreach="this.data.equipment_status || []" t-as="row" t-key="row.equipment_id" class="o_exec_clickable_row" t-on-click="() => this.openEquipment(row)"><td class="fw-semibold" t-esc="row.equipment"/><td t-esc="row.technician"/><td t-esc="row.maintenance_team"/><td class="text-end" t-esc="this.formatValue(row.current_open_requests)"/><td t-esc="row.last_maintenance_date"/><td t-esc="row.next_preventive_maintenance"/><td class="text-end" t-esc="this.formatValue(row.downtime_hours, 'float')"/><td><span t-att-class="'badge ' + this.statusClass(row.status_key)" t-esc="row.status"/></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openEquipment(row)">Open</button></td></tr></tbody></table></div></article></section>
+                <section class="o_exec_section"><AlertPreview alerts="this.alertsPreview" onOpen.bind="openAlert" onActivity.bind="createAlertActivity"/></section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.HrDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>HR Dashboard</h1><p>Employee, attendance, leave, contract, and HR operating metrics.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'hr'" dashboardTitle="'HR Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading HR dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_hr"><KpiCard t-foreach="this.data.hr_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section">
+                    <div class="o_exec_chart_grid">
+                        <article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel">
+                            <header><h3 t-esc="chart.title"/></header>
+                            <t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t>
+                            <div t-else="" class="o_exec_chart_fallback"><button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})"><span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/></button></div>
+                        </article>
+                    </div>
+                </section>
+                <section class="o_exec_section">
+                    <article class="o_exec_panel">
+                        <header><h2>Employees Overview</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_hr_employee_table">
+                                <thead><tr><th>Employee</th><th>Department</th><th>Job Position</th><th>Manager</th><th>Attendance Status</th><th class="text-end">Late Hours</th><th class="text-end">Open Leave Requests</th><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.employees_overview || []).length"><td colspan="8" class="o_exec_empty">No employee data</td></tr>
+                                    <tr t-foreach="this.data.employees_overview || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openHrEmployee(row)">
+                                        <td class="fw-semibold" t-esc="row.employee"/><td t-esc="row.department"/><td t-esc="row.job_position"/><td t-esc="row.manager"/><td><span t-att-class="'badge ' + this.statusClass(row.attendance_status_key)" t-esc="row.attendance_status"/></td><td class="text-end" t-esc="this.formatValue(row.late_hours, 'float')"/><td class="text-end" t-esc="this.formatValue(row.open_leave_requests)"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openHrEmployee(row)">Open</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+                <section class="o_exec_section o_exec_tables">
+                    <article class="o_exec_panel">
+                        <header><h2>Leave Requests</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_hr_leave_table">
+                                <thead><tr><th>Employee</th><th>Leave Type</th><th>Date From</th><th>Date To</th><th>Duration</th><th>Status</th><th>Responsible Manager</th><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.leave_requests || []).length"><td colspan="8" class="o_exec_empty">No leave requests</td></tr>
+                                    <tr t-foreach="this.data.leave_requests || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openHrLeave(row)">
+                                        <td class="fw-semibold" t-esc="row.employee"/><td t-esc="row.leave_type"/><td t-esc="row.date_from"/><td t-esc="row.date_to"/><td t-esc="row.duration"/><td><span t-att-class="'badge ' + this.statusClass(row.state)" t-esc="row.state_label"/></td><td t-esc="row.responsible_manager"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openHrLeave(row)">Open</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                    <article class="o_exec_panel">
+                        <header><h2>Contracts Expiring Soon</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_hr_contract_table">
+                                <thead><tr><th>Employee</th><th>Contract</th><th>Department</th><th>Start Date</th><th>End Date</th><th class="text-end">Remaining Days</th><th>Status</th><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.contracts_expiring || []).length"><td colspan="8" class="o_exec_empty">No expiring contracts</td></tr>
+                                    <tr t-foreach="this.data.contracts_expiring || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openHrContract(row)">
+                                        <td class="fw-semibold" t-esc="row.employee"/><td t-esc="row.contract"/><td t-esc="row.department"/><td t-esc="row.date_start"/><td t-esc="row.date_end"/><td class="text-end"><span t-att-class="'badge ' + (row.remaining_days &lt;= 7 ? 'text-bg-danger' : 'text-bg-warning')" t-esc="row.remaining_days"/></td><td><span t-att-class="'badge ' + this.statusClass(row.state)" t-esc="row.state_label"/></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openHrContract(row)">Open</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.HelpdeskDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>Helpdesk Dashboard</h1><p>Support tickets, SLA risk, response time, team load, and delayed ticket monitoring.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'helpdesk'" dashboardTitle="'Helpdesk Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading helpdesk dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_helpdesk"><KpiCard t-foreach="this.data.helpdesk_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section">
+                    <div class="o_exec_chart_grid">
+                        <article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel">
+                            <header><h3 t-esc="chart.title"/></header>
+                            <t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t>
+                            <div t-else="" class="o_exec_chart_fallback"><button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})"><span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/></button></div>
+                        </article>
+                    </div>
+                </section>
+                <section class="o_exec_section">
+                    <article class="o_exec_panel">
+                        <header><h2>Tickets Overview</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_helpdesk_ticket_table">
+                                <thead><tr><th>Ticket</th><th>Customer</th><th>Team</th><th>Assigned User</th><th>Stage</th><th>Priority</th><th>Create Date</th><th>Deadline</th><th class="text-end">Delay Days</th><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.tickets_overview || []).length"><td colspan="10" class="o_exec_empty">No tickets</td></tr>
+                                    <tr t-foreach="this.data.tickets_overview || []" t-as="row" t-key="row.id" t-att-class="row.delay_days ? 'o_exec_clickable_row o_exec_delayed_row' : 'o_exec_clickable_row'" t-on-click="() => this.openHelpdeskTicket(row)">
+                                        <td class="fw-semibold" t-esc="row.ticket"/><td t-esc="row.customer"/><td t-esc="row.team"/><td t-esc="row.assigned_user"/><td><span t-att-class="'badge ' + (row.stage_fold ? 'text-bg-success' : 'text-bg-info')" t-esc="row.stage"/></td><td><span t-att-class="'badge ' + this.priorityClass(row.priority_key)" t-esc="row.priority"/></td><td t-esc="row.create_date"/><td t-esc="row.deadline"/><td class="text-end"><span t-att-class="'badge ' + (row.delay_days ? 'text-bg-danger' : 'text-bg-success')" t-esc="row.delay_days"/></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openHelpdeskTicket(row)">Open</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+                <section class="o_exec_section o_exec_tables">
+                    <article class="o_exec_panel">
+                        <header><h2>Delayed Tickets</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_helpdesk_delayed_table">
+                                <thead><tr><th>Ticket</th><th>Team</th><th>Assigned User</th><th>Deadline</th><th class="text-end">Delay Days</th><th>Priority</th><th>Stage</th><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.delayed_tickets || []).length"><td colspan="8" class="o_exec_empty">No delayed tickets</td></tr>
+                                    <tr t-foreach="this.data.delayed_tickets || []" t-as="row" t-key="row.id" class="o_exec_clickable_row o_exec_delayed_row" t-on-click="() => this.openHelpdeskTicket(row)">
+                                        <td class="fw-semibold" t-esc="row.ticket"/><td t-esc="row.team"/><td t-esc="row.assigned_user"/><td t-esc="row.deadline"/><td class="text-end"><span class="badge text-bg-danger" t-esc="row.delay_days"/></td><td><span t-att-class="'badge ' + this.priorityClass(row.priority_key)" t-esc="row.priority"/></td><td t-esc="row.stage"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openHelpdeskTicket(row)">Open</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                    <article class="o_exec_panel">
+                        <header><h2>Team Performance</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_helpdesk_team_table">
+                                <thead><tr><th>Team</th><th class="text-end">Total Tickets</th><th class="text-end">Closed Tickets</th><th class="text-end">Open Tickets</th><th class="text-end">Average Resolution Time</th><th class="text-end">Delayed Tickets</th><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.team_performance || []).length"><td colspan="7" class="o_exec_empty">No team performance data</td></tr>
+                                    <tr t-foreach="this.data.team_performance || []" t-as="row" t-key="row.team_id" class="o_exec_clickable_row" t-on-click="() => this.openHelpdeskTeam(row)">
+                                        <td class="fw-semibold" t-esc="row.team"/><td class="text-end" t-esc="this.formatValue(row.total_tickets)"/><td class="text-end" t-esc="this.formatValue(row.closed_tickets)"/><td class="text-end" t-esc="this.formatValue(row.open_tickets)"/><td class="text-end" t-esc="this.formatValue(row.average_resolution_time, 'float')"/><td class="text-end"><span t-att-class="'badge ' + (row.delayed_tickets ? 'text-bg-danger' : 'text-bg-success')" t-esc="row.delayed_tickets"/></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openHelpdeskTeam(row)">Open</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.PosDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>POS Dashboard</h1><p>Point of Sale revenue, sessions, cashiers, payment methods, refunds, and product performance.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'pos'" dashboardTitle="'POS Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading POS dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_pos"><KpiCard t-foreach="this.data.pos_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section"><div class="o_exec_chart_grid"><article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel"><header><h3 t-esc="chart.title"/></header><t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t><div t-else="" class="o_exec_chart_fallback"><button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})"><span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/></button></div></article></div></section>
+                <section class="o_exec_section"><article class="o_exec_panel"><header><h2>POS Sessions</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_pos_session_table"><thead><tr><th>Session</th><th>POS / Branch</th><th>Cashier</th><th>Opening Date</th><th>Closing Date</th><th class="text-end">Orders Count</th><th class="text-end">Total Sales</th><th>State</th><th/></tr></thead><tbody><tr t-if="!(this.data.pos_sessions || []).length"><td colspan="9" class="o_exec_empty">No POS sessions</td></tr><tr t-foreach="this.data.pos_sessions || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openPosSession(row)"><td class="fw-semibold" t-esc="row.session"/><td t-esc="row.pos"/><td t-esc="row.cashier"/><td t-esc="row.opening_date"/><td t-esc="row.closing_date"/><td class="text-end" t-esc="this.formatValue(row.orders_count)"/><td class="text-end" t-esc="this.formatValue(row.total_sales, 'monetary')"/><td><span t-att-class="'badge ' + this.statusClass(row.state)" t-esc="row.state_label"/></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openPosSession(row)">Open</button></td></tr></tbody></table></div></article></section>
+                <section class="o_exec_section o_exec_tables">
+                    <article class="o_exec_panel"><header><h2>POS Orders</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_pos_order_table"><thead><tr><th>Order</th><th>POS / Branch</th><th>Customer</th><th>Cashier</th><th>Order Date</th><th class="text-end">Amount</th><th>Payment Method</th><th>State</th><th/></tr></thead><tbody><tr t-if="!(this.data.pos_orders || []).length"><td colspan="9" class="o_exec_empty">No POS orders</td></tr><tr t-foreach="this.data.pos_orders || []" t-as="row" t-key="row.id" t-att-class="row.amount &lt; 0 ? 'o_exec_clickable_row o_exec_refund_row' : 'o_exec_clickable_row'" t-on-click="() => this.openPosOrder(row)"><td class="fw-semibold" t-esc="row.order"/><td t-esc="row.pos"/><td t-esc="row.customer"/><td t-esc="row.cashier"/><td t-esc="row.order_date"/><td class="text-end" t-esc="this.formatValue(row.amount, 'monetary')"/><td t-esc="row.payment_method"/><td><span t-att-class="'badge ' + this.statusClass(row.state)" t-esc="row.state_label"/></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openPosOrder(row)">Open</button></td></tr></tbody></table></div></article>
+                    <article class="o_exec_panel"><header><h2>Top POS Products</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_pos_product_table"><thead><tr><th>Product</th><th class="text-end">Sold Quantity</th><th class="text-end">Revenue</th><th class="text-end">Refund Quantity</th><th class="text-end">Orders Count</th><th/></tr></thead><tbody><tr t-if="!(this.data.pos_products || []).length"><td colspan="6" class="o_exec_empty">No POS product data</td></tr><tr t-foreach="this.data.pos_products || []" t-as="row" t-key="row.product_id" class="o_exec_clickable_row" t-on-click="() => this.openPosProduct(row)"><td class="fw-semibold" t-esc="row.product"/><td class="text-end" t-esc="this.formatValue(row.sold_quantity, 'float')"/><td class="text-end" t-esc="this.formatValue(row.revenue, 'monetary')"/><td class="text-end"><span t-att-class="'badge ' + (row.refund_quantity ? 'text-bg-danger' : 'text-bg-success')" t-esc="this.formatValue(row.refund_quantity, 'float')"/></td><td class="text-end" t-esc="this.formatValue(row.orders_count)"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openPosProduct(row)">Open</button></td></tr></tbody></table></div></article>
+                </section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.WebsiteDashboard">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>Website Dashboard</h1><p>eCommerce orders, revenue, carts, customers, products, and online sales trends.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'website'" dashboardTitle="'Website Dashboard'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading website dashboard'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section"><div class="o_exec_kpi_grid o_exec_kpi_grid_website"><KpiCard t-foreach="this.data.website_kpis || []" t-as="kpi" t-key="kpi.key" kpi="kpi" formatKpi.bind="formatKpi" onOpen.bind="openKpi"/></div></section>
+                <section class="o_exec_section"><div class="o_exec_chart_grid"><article t-foreach="this.charts" t-as="chart" t-key="chart.key" class="o_exec_panel o_exec_chart_panel"><header><h3 t-esc="chart.title"/></header><t t-if="state.chartjs and this.chartHasData(chart)"><DashboardChart chart="chart" currencyId="this.currencyId" onOpen.bind="openChart"/></t><div t-else="" class="o_exec_chart_fallback"><button t-foreach="chart.data" t-as="point" t-key="point.label" type="button" class="o_exec_bar_row" t-on-click="() => this.openChart(chart.action_key, point.extra || {})"><span class="o_exec_bar_name" t-esc="point.label"/><span class="o_exec_bar_track"><span t-att-style="'width: ' + this.barWidth(point.value, this.maxChartValue(chart))"/></span><span class="o_exec_bar_value" t-esc="this.formatValue(point.value, chart.metric)"/></button></div></article></div></section>
+                <section class="o_exec_section"><article class="o_exec_panel"><header><h2>Website Orders</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_website_order_table"><thead><tr><th>Order</th><th>Customer</th><th>Website</th><th>Order Date</th><th class="text-end">Amount</th><th>State</th><th>Salesperson</th><th/></tr></thead><tbody><tr t-if="!(this.data.website_orders || []).length"><td colspan="8" class="o_exec_empty">No website orders</td></tr><tr t-foreach="this.data.website_orders || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openWebsiteOrder(row)"><td class="fw-semibold" t-esc="row.order"/><td t-esc="row.customer"/><td t-esc="row.website"/><td t-esc="row.order_date"/><td class="text-end" t-esc="this.formatValue(row.amount, 'monetary')"/><td><span t-att-class="'badge ' + this.statusClass(row.state)" t-esc="row.state_label"/></td><td t-esc="row.salesperson"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openWebsiteOrder(row)">Open</button></td></tr></tbody></table></div></article></section>
+                <section class="o_exec_section o_exec_tables">
+                    <article class="o_exec_panel"><header><h2>Top Online Products</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_website_product_table"><thead><tr><th>Product</th><th class="text-end">Sold Quantity</th><th class="text-end">Revenue</th><th class="text-end">Orders Count</th><th/></tr></thead><tbody><tr t-if="!(this.data.website_products || []).length"><td colspan="5" class="o_exec_empty">No online product data</td></tr><tr t-foreach="this.data.website_products || []" t-as="row" t-key="row.product_id" class="o_exec_clickable_row" t-on-click="() => this.openWebsiteProduct(row)"><td class="fw-semibold" t-esc="row.product"/><td class="text-end" t-esc="this.formatValue(row.sold_quantity, 'float')"/><td class="text-end" t-esc="this.formatValue(row.revenue, 'monetary')"/><td class="text-end" t-esc="this.formatValue(row.orders_count)"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openWebsiteProduct(row)">Open</button></td></tr></tbody></table></div></article>
+                    <article class="o_exec_panel"><header><h2>Website Customers</h2></header><div class="table-responsive"><table class="table table-hover o_exec_table o_exec_website_customer_table"><thead><tr><th>Customer</th><th>Registration Date</th><th class="text-end">Website Orders Count</th><th class="text-end">Total Revenue</th><th>Last Order Date</th><th/></tr></thead><tbody><tr t-if="!(this.data.website_customers || []).length"><td colspan="6" class="o_exec_empty">No website customer data</td></tr><tr t-foreach="this.data.website_customers || []" t-as="row" t-key="row.partner_id" class="o_exec_clickable_row" t-on-click="() => this.openWebsiteCustomer(row)"><td class="fw-semibold" t-esc="row.customer"/><td t-esc="row.registration_date"/><td class="text-end" t-esc="this.formatValue(row.orders_count)"/><td class="text-end" t-esc="this.formatValue(row.total_revenue, 'monetary')"/><td t-esc="row.last_order_date"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openWebsiteCustomer(row)">Open</button></td></tr></tbody></table></div></article>
+                </section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="executive_dashboard.AlertsCenter">
+        <div class="o_action o_executive_dashboard o_exec_workspace">
+            <div class="o_exec_header"><div><h1>Alerts Center</h1><p>Centralized operational alerts across sales, inventory, purchase, manufacturing, and maintenance.</p></div><div class="o_exec_header_actions"><span t-if="this.data.last_updated">Last updated <t t-esc="this.data.last_updated"/></span><DashboardExportToolbar dashboardKey="'alerts'" dashboardTitle="'Alerts Center'" filters="state.filters"/><button type="button" class="btn btn-outline-primary btn-sm" t-on-click="refresh"><i class="fa fa-refresh"/> Refresh</button></div></div>
+            <DashboardFilters filters="state.filters" options="this.filterOptions" fields="this.filterFields" onChange.bind="onFilterChange" onClear.bind="clearFilters" hasActiveFilters="this.hasActiveFilters"/>
+            <div t-if="state.error" class="alert alert-danger o_exec_alert" role="alert" t-esc="state.error"/>
+            <LoadingState t-if="state.loading and !state.data" label="'Loading alerts'"/>
+            <t t-if="state.data">
+                <div t-if="state.loading" class="o_exec_refreshing"><i class="fa fa-circle-o-notch fa-spin"/></div>
+                <section class="o_exec_section">
+                    <div class="o_exec_kpi_grid o_exec_alert_summary">
+                        <button type="button" class="o_exec_kpi_card"><span class="o_exec_kpi_label">Total Alerts</span><span class="o_exec_kpi_value" t-esc="this.formatValue((this.data.summary || {}).total)"/></button>
+                        <button type="button" class="o_exec_kpi_card"><span class="o_exec_kpi_label">Critical</span><span class="o_exec_kpi_value" t-esc="this.formatValue((this.data.summary || {}).critical)"/></button>
+                        <button type="button" class="o_exec_kpi_card"><span class="o_exec_kpi_label">High</span><span class="o_exec_kpi_value" t-esc="this.formatValue((this.data.summary || {}).high)"/></button>
+                        <button type="button" class="o_exec_kpi_card"><span class="o_exec_kpi_label">Smart Open</span><span class="o_exec_kpi_value" t-esc="this.formatValue((this.data.smart_summary || {}).total)"/></button>
+                    </div>
+                </section>
+                <section class="o_exec_section">
+                    <article class="o_exec_panel">
+                        <header><h2>Smart Alerts</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_alert_table">
+                                <thead><tr><th>Rule</th><th>Dashboard</th><th>Metric</th><th class="text-end">Measured</th><th>Condition</th><th>Severity</th><th>Status</th><th>Responsible</th><th>Triggered</th><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.smart_alerts || []).length"><td colspan="10" class="o_exec_empty">No smart alerts</td></tr>
+                                    <tr t-foreach="this.data.smart_alerts || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openSmartAlert(row)">
+                                        <td class="fw-semibold" t-esc="row.rule_name"/>
+                                        <td t-esc="row.dashboard"/>
+                                        <td t-esc="row.metric_label"/>
+                                        <td class="text-end" t-esc="this.formatValue(row.measured_value, 'float')"/>
+                                        <td><t t-esc="row.operator"/> <t t-esc="this.formatValue(row.threshold_value, 'float')"/></td>
+                                        <td><span t-att-class="'badge ' + this.severityClass(row.severity_key)" t-esc="row.severity"/></td>
+                                        <td><span t-att-class="'badge ' + this.statusClass(row.status)" t-esc="row.status_label"/></td>
+                                        <td t-esc="row.responsible_user"/>
+                                        <td t-esc="row.triggered_datetime"/>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openSmartAlert(row)">Open</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" t-on-click.stop="() => this.openSmartRule(row)" t-att-disabled="!row.rule_id">Rule</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" t-on-click.stop="() => this.openSmartRelated(row)" t-att-disabled="!row.can_open_related">Record</button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.markSmartInProgress(row)" t-att-disabled="row.status === 'in_progress' || row.status === 'resolved' || row.status === 'ignored'">Progress</button>
+                                            <button type="button" class="btn btn-sm btn-success" t-on-click.stop="() => this.resolveSmartAlert(row)" t-att-disabled="row.status === 'resolved' || row.status === 'ignored'">Resolve</button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" t-on-click.stop="() => this.ignoreSmartAlert(row)" t-att-disabled="row.status === 'resolved' || row.status === 'ignored'">Ignore</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+                <section class="o_exec_section">
+                    <article class="o_exec_panel">
+                        <header><h2>Operational Alerts</h2></header>
+                        <div class="table-responsive">
+                            <table class="table table-hover o_exec_table o_exec_alert_table">
+                                <thead><tr><th>Alert Type</th><th>Severity</th><th>Related Document</th><th>Department</th><th>Responsible User</th><th class="text-end">Delay Days</th><th>Message</th><th/><th/></tr></thead>
+                                <tbody>
+                                    <tr t-if="!(this.data.alerts || []).length"><td colspan="9" class="o_exec_empty">No alerts</td></tr>
+                                    <tr t-foreach="this.data.alerts || []" t-as="row" t-key="row.id" class="o_exec_clickable_row" t-on-click="() => this.openAlert(row)">
+                                        <td class="fw-semibold" t-esc="row.alert_type"/><td><span t-att-class="'badge ' + this.severityClass(row.severity_key)" t-esc="row.severity"/></td><td t-esc="row.related_document"/><td t-esc="row.department"/><td t-esc="row.responsible_user"/><td class="text-end" t-esc="row.delay_days"/><td t-esc="row.message"/><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" t-on-click.stop="() => this.openAlert(row)">Open</button></td><td class="text-end"><button type="button" class="btn btn-sm btn-primary" t-att-disabled="!row.can_create_activity" t-on-click.stop="() => this.createAlertActivity(row)">Activity</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+            </t>
+        </div>
+    </t>
+</templates>

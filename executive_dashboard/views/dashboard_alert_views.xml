@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Alert Rules -->
+    <record id="view_dashboard_alert_rule_list" model="ir.ui.view">
+        <field name="name">Executive Dashboard Alert Rule List</field>
+        <field name="model">executive.dashboard.alert.rule</field>
+        <field name="arch" type="xml">
+            <list string="Alert Rules">
+                <field name="active"/>
+                <field name="name"/>
+                <field name="dashboard_key"/>
+                <field name="metric_key"/>
+                <field name="operator"/>
+                <field name="threshold_value"/>
+                <field name="severity"/>
+                <field name="company_id"/>
+                <field name="last_triggered_datetime"/>
+                <field name="next_allowed_datetime"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dashboard_alert_rule_form" model="ir.ui.view">
+        <field name="name">Executive Dashboard Alert Rule Form</field>
+        <field name="model">executive.dashboard.alert.rule</field>
+        <field name="arch" type="xml">
+            <form string="Alert Rule">
+                <header>
+                    <button name="action_evaluate_now" string="Evaluate Now" type="object" class="oe_highlight"/>
+                    <button name="action_open_history" string="History" type="object"/>
+                    <field name="active" widget="boolean_toggle"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Rule name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Rule Info">
+                            <field name="dashboard_key"/>
+                            <field name="metric_key" placeholder="Example: delayed_sales_orders"/>
+                            <field name="metric_label"/>
+                            <field name="company_id"/>
+                            <field name="responsible_user_id"/>
+                            <field name="severity"/>
+                        </group>
+                        <group string="Condition">
+                            <field name="operator"/>
+                            <field name="threshold_value"/>
+                            <field name="threshold_type"/>
+                            <field name="period_type"/>
+                            <field name="date_from" invisible="period_type != 'custom'"/>
+                            <field name="date_to" invisible="period_type != 'custom'"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Actions">
+                            <group>
+                                <group string="Action Toggles">
+                                    <field name="action_create_activity"/>
+                                    <field name="action_send_email"/>
+                                    <field name="action_notify_user"/>
+                                    <field name="action_create_log"/>
+                                </group>
+                                <group string="Recipients">
+                                    <field name="recipient_user_ids" widget="many2many_tags"/>
+                                    <field name="recipient_partner_ids" widget="many2many_tags"/>
+                                    <field name="recipient_emails"/>
+                                </group>
+                            </group>
+                            <group string="Activity">
+                                <field name="activity_user_id"/>
+                                <field name="activity_type_id"/>
+                                <field name="activity_summary"/>
+                                <field name="activity_note"/>
+                            </group>
+                        </page>
+                        <page string="Message Templates">
+                            <group>
+                                <field name="email_subject"/>
+                                <field name="email_body"/>
+                            </group>
+                        </page>
+                        <page string="Escalation">
+                            <group>
+                                <group>
+                                    <field name="escalation_enabled"/>
+                                    <field name="escalation_after_hours"/>
+                                </group>
+                                <group>
+                                    <field name="escalation_user_ids" widget="many2many_tags"/>
+                                    <field name="escalation_partner_ids" widget="many2many_tags"/>
+                                </group>
+                            </group>
+                            <group string="Escalation Email">
+                                <field name="escalation_email_subject"/>
+                                <field name="escalation_email_body"/>
+                            </group>
+                        </page>
+                        <page string="Cooldown">
+                            <group>
+                                <field name="cooldown_hours"/>
+                                <field name="last_triggered_datetime" readonly="1"/>
+                                <field name="next_allowed_datetime" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dashboard_alert_rule_search" model="ir.ui.view">
+        <field name="name">Executive Dashboard Alert Rule Search</field>
+        <field name="model">executive.dashboard.alert.rule</field>
+        <field name="arch" type="xml">
+            <search string="Alert Rules">
+                <field name="name"/>
+                <field name="dashboard_key"/>
+                <field name="metric_key"/>
+                <field name="responsible_user_id"/>
+                <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+                <filter name="inactive" string="Inactive" domain="[('active', '=', False)]"/>
+                <separator/>
+                <filter name="group_dashboard" string="Dashboard" context="{'group_by': 'dashboard_key'}"/>
+                <filter name="group_severity" string="Severity" context="{'group_by': 'severity'}"/>
+                <filter name="group_company" string="Company" context="{'group_by': 'company_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dashboard_alert_rule" model="ir.actions.act_window">
+        <field name="name">Alert Rules</field>
+        <field name="res_model">executive.dashboard.alert.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dashboard_alert_rule_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create a smart dashboard alert rule</p>
+            <p>Monitor KPI thresholds and automatically notify the right people.</p>
+        </field>
+    </record>
+
+    <!-- Alert History -->
+    <record id="view_dashboard_alert_history_list" model="ir.ui.view">
+        <field name="name">Executive Dashboard Alert History List</field>
+        <field name="model">executive.dashboard.alert.history</field>
+        <field name="arch" type="xml">
+            <list string="Alert History">
+                <field name="triggered_datetime"/>
+                <field name="name"/>
+                <field name="dashboard_key"/>
+                <field name="metric_label"/>
+                <field name="measured_value"/>
+                <field name="operator"/>
+                <field name="threshold_value"/>
+                <field name="severity"/>
+                <field name="status"/>
+                <field name="responsible_user_id"/>
+                <field name="company_id"/>
+                <button name="action_mark_in_progress" string="In Progress" type="object" invisible="status not in ('new', 'escalated')"/>
+                <button name="action_mark_resolved" string="Resolve" type="object" invisible="status in ('resolved', 'ignored')"/>
+                <button name="action_ignore" string="Ignore" type="object" invisible="status in ('resolved', 'ignored')"/>
+                <button name="action_reopen" string="Reopen" type="object" invisible="status not in ('resolved', 'ignored')"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dashboard_alert_history_form" model="ir.ui.view">
+        <field name="name">Executive Dashboard Alert History Form</field>
+        <field name="model">executive.dashboard.alert.history</field>
+        <field name="arch" type="xml">
+            <form string="Alert History">
+                <header>
+                    <button name="action_mark_in_progress" string="Mark In Progress" type="object" invisible="status not in ('new', 'escalated')"/>
+                    <button name="action_mark_resolved" string="Resolve" type="object" class="oe_highlight" invisible="status in ('resolved', 'ignored')"/>
+                    <button name="action_ignore" string="Ignore" type="object" invisible="status in ('resolved', 'ignored')"/>
+                    <button name="action_reopen" string="Reopen" type="object" invisible="status not in ('resolved', 'ignored')"/>
+                    <button name="action_open_rule" string="Open Rule" type="object" invisible="not rule_id"/>
+                    <button name="action_open_related_record" string="Open Related Record" type="object" invisible="not related_model or not related_res_id"/>
+                    <field name="status" widget="statusbar" statusbar_visible="new,in_progress,escalated,resolved,ignored"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Alert">
+                            <field name="rule_id"/>
+                            <field name="dashboard_key"/>
+                            <field name="metric_key"/>
+                            <field name="metric_label"/>
+                            <field name="severity"/>
+                            <field name="company_id"/>
+                            <field name="responsible_user_id"/>
+                        </group>
+                        <group string="Condition">
+                            <field name="measured_value"/>
+                            <field name="operator"/>
+                            <field name="threshold_value"/>
+                            <field name="triggered_datetime"/>
+                            <field name="resolved_datetime"/>
+                            <field name="escalated_datetime"/>
+                        </group>
+                    </group>
+                    <group string="Related Record">
+                        <field name="related_model"/>
+                        <field name="related_res_id"/>
+                        <field name="related_record_name"/>
+                    </group>
+                    <notebook>
+                        <page string="Message">
+                            <field name="message"/>
+                        </page>
+                        <page string="Actions">
+                            <group>
+                                <field name="email_sent"/>
+                                <field name="activity_created"/>
+                                <field name="notification_sent"/>
+                                <field name="escalation_sent"/>
+                                <field name="last_notification_datetime"/>
+                            </group>
+                            <field name="action_taken"/>
+                        </page>
+                        <page string="Errors">
+                            <field name="error_message"/>
+                        </page>
+                        <page string="Filters">
+                            <field name="filters_json"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dashboard_alert_history_search" model="ir.ui.view">
+        <field name="name">Executive Dashboard Alert History Search</field>
+        <field name="model">executive.dashboard.alert.history</field>
+        <field name="arch" type="xml">
+            <search string="Alert History">
+                <field name="name"/>
+                <field name="rule_id"/>
+                <field name="dashboard_key"/>
+                <field name="metric_key"/>
+                <field name="responsible_user_id"/>
+                <filter name="open" string="Open" domain="[('status', 'in', ['new', 'in_progress', 'escalated'])]"/>
+                <filter name="critical" string="Critical" domain="[('severity', '=', 'critical')]"/>
+                <filter name="failed_actions" string="Action Errors" domain="[('error_message', '!=', False)]"/>
+                <separator/>
+                <filter name="group_status" string="Status" context="{'group_by': 'status'}"/>
+                <filter name="group_severity" string="Severity" context="{'group_by': 'severity'}"/>
+                <filter name="group_dashboard" string="Dashboard" context="{'group_by': 'dashboard_key'}"/>
+                <filter name="group_rule" string="Rule" context="{'group_by': 'rule_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dashboard_alert_history" model="ir.actions.act_window">
+        <field name="name">Alert History</field>
+        <field name="res_model">executive.dashboard.alert.history</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dashboard_alert_history_search"/>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No smart alert history yet</p>
+            <p>Triggered smart alert rules will appear here.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_alert_rules" name="Alert Rules" parent="menu_alerts_root" action="action_dashboard_alert_rule" sequence="20" groups="executive_dashboard.group_dashboard_manager,base.group_system"/>
+    <menuitem id="menu_alert_history" name="Alert History" parent="menu_alerts_root" action="action_dashboard_alert_history" sequence="30" groups="base.group_user"/>
+</odoo>

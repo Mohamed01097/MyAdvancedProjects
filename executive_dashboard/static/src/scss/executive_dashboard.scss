@@ -1,0 +1,612 @@
+// Odoo's action manager hides overflow on direct client action nodes.
+// The dashboard action itself must own vertical scrolling for long KPI/chart/table pages.
+.o_web_client > .o_action_manager .o_action.o_executive_dashboard,
+.o_action.o_executive_dashboard {
+    display: block;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -ms-overflow-style: auto;
+    scrollbar-width: auto;
+
+    &::-webkit-scrollbar {
+        display: block;
+        width: 10px;
+    }
+}
+
+.o_executive_dashboard {
+    --exec-bg: #f6f7f9;
+    --exec-panel: #ffffff;
+    --exec-border: #d9dee7;
+    --exec-muted: #667085;
+    --exec-text: #1f2937;
+    --exec-blue: #2563eb;
+    --exec-green: #059669;
+    --exec-amber: #d97706;
+    --exec-red: #dc2626;
+
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 16px;
+    padding-bottom: 72px;
+    background: var(--exec-bg);
+    color: var(--exec-text);
+
+    h1,
+    h2,
+    h3,
+    p {
+        margin: 0;
+        letter-spacing: 0;
+    }
+
+    .o_exec_header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+
+        h1 {
+            font-size: 24px;
+            line-height: 1.2;
+            font-weight: 800;
+        }
+
+        p {
+            margin-top: 4px;
+            color: var(--exec-muted);
+            font-size: 13px;
+        }
+    }
+
+    .o_exec_header_actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 8px;
+        color: var(--exec-muted);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .o_exec_filters {
+        display: flex;
+        align-items: end;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+
+        label {
+            min-width: 150px;
+            margin: 0;
+        }
+
+        span {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--exec-muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .form-control,
+        .form-select {
+            min-height: 34px;
+            border-color: var(--exec-border);
+            border-radius: 6px;
+            font-size: 13px;
+        }
+    }
+
+    .o_exec_clear_filters {
+        min-height: 34px;
+        border-radius: 6px;
+    }
+
+    .o_exec_alert {
+        border-radius: 8px;
+    }
+
+    .o_exec_loading {
+        min-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: var(--exec-muted);
+        font-weight: 600;
+    }
+
+    .o_exec_refreshing {
+        position: sticky;
+        top: 8px;
+        z-index: 3;
+        width: max-content;
+        margin-inline-start: auto;
+        margin-bottom: -28px;
+        padding: 5px 9px;
+        border: 1px solid var(--exec-border);
+        border-radius: 999px;
+        background: var(--exec-panel);
+        color: var(--exec-blue);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    }
+
+    .o_exec_section {
+        margin-bottom: 18px;
+    }
+
+    .o_exec_section_header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+
+        h2 {
+            font-size: 16px;
+            line-height: 1.25;
+            font-weight: 800;
+        }
+    }
+
+    .o_exec_subsection_title {
+        margin: 12px 0 8px;
+        color: var(--exec-muted);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .o_exec_kpi_grid,
+    .o_exec_department_grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+    }
+
+    .o_exec_kpi_card,
+    .o_exec_department_card {
+        min-height: 96px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px;
+        border: 1px solid var(--exec-border);
+        border-inline-start: 4px solid var(--exec-blue);
+        border-radius: 8px;
+        background: var(--exec-panel);
+        color: inherit;
+        text-align: start;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    .o_exec_kpi_card {
+        &:nth-child(4n + 2) {
+            border-inline-start-color: var(--exec-green);
+        }
+
+        &:nth-child(4n + 3) {
+            border-inline-start-color: var(--exec-amber);
+        }
+
+        &:nth-child(4n) {
+            border-inline-start-color: var(--exec-red);
+        }
+
+        &:not(:disabled):hover,
+        &:not(:disabled):focus {
+            border-color: #b8c2d6;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+            transform: translateY(-1px);
+        }
+    }
+
+    .o_exec_kpi_grid_crm .o_exec_kpi_card {
+        border-inline-start-color: #7c3aed;
+    }
+
+    .o_exec_kpi_grid_inventory .o_exec_kpi_card,
+    .o_exec_kpi_grid_maintenance .o_exec_kpi_card {
+        border-inline-start-color: #0f766e;
+    }
+
+    .o_exec_kpi_grid_purchase .o_exec_kpi_card {
+        border-inline-start-color: #c2410c;
+    }
+
+    .o_exec_kpi_grid_manufacturing .o_exec_kpi_card {
+        border-inline-start-color: #0e7490;
+    }
+
+    .o_exec_kpi_grid_workcenter .o_exec_kpi_card {
+        border-inline-start-color: #0369a1;
+    }
+
+    .o_exec_kpi_grid_hr .o_exec_kpi_card {
+        border-inline-start-color: #2563eb;
+    }
+
+    .o_exec_kpi_grid_helpdesk .o_exec_kpi_card {
+        border-inline-start-color: #0891b2;
+    }
+
+    .o_exec_kpi_grid_pos .o_exec_kpi_card {
+        border-inline-start-color: #059669;
+    }
+
+    .o_exec_kpi_grid_website .o_exec_kpi_card {
+        border-inline-start-color: #7c3aed;
+    }
+
+    .o_exec_kpi_label,
+    .o_exec_department_status,
+    .o_exec_department_metrics span {
+        width: 100%;
+        color: var(--exec-muted);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+
+    .o_exec_kpi_value {
+        width: 100%;
+        font-size: 25px;
+        line-height: 1.15;
+        font-weight: 800;
+        overflow-wrap: anywhere;
+    }
+
+    .o_exec_department_card {
+        border-inline-start-color: var(--exec-green);
+
+        h3 {
+            font-size: 16px;
+            line-height: 1.25;
+            font-weight: 800;
+        }
+    }
+
+    .o_exec_department_metrics {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+
+        div {
+            min-width: 0;
+        }
+
+        strong {
+            display: block;
+            margin-top: 2px;
+            font-size: 20px;
+            line-height: 1.2;
+        }
+    }
+
+    .o_exec_chart_grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px;
+    }
+
+    .o_exec_panel {
+        min-width: 0;
+        border: 1px solid var(--exec-border);
+        border-radius: 8px;
+        background: var(--exec-panel);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+
+        > header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 48px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--exec-border);
+
+            h2,
+            h3 {
+                font-size: 15px;
+                line-height: 1.25;
+                font-weight: 800;
+            }
+        }
+    }
+
+    .o_exec_chart_panel {
+        min-height: 310px;
+    }
+
+    .o_exec_chart_canvas,
+    .o_exec_chart_fallback {
+        height: 250px;
+        padding: 12px;
+    }
+
+    .o_exec_fallback_group {
+        padding-block: 8px;
+        border-bottom: 1px solid #edf0f5;
+
+        &:last-child {
+            border-bottom: 0;
+        }
+    }
+
+    .o_exec_bar_group_label {
+        margin-bottom: 6px;
+        color: var(--exec-muted);
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .o_exec_bar_row {
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(92px, 1fr) minmax(90px, 2fr) minmax(64px, auto);
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: start;
+    }
+
+    .o_exec_bar_name,
+    .o_exec_bar_value {
+        min-width: 0;
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .o_exec_bar_value {
+        font-weight: 700;
+        text-align: end;
+    }
+
+    .o_exec_bar_track {
+        height: 9px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        background: #f2f4f7;
+
+        span {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: var(--exec-blue);
+        }
+    }
+
+    .o_exec_tables {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+        gap: 12px;
+        align-items: start;
+    }
+
+    .o_exec_tables_wide {
+        grid-template-columns: 1fr;
+    }
+
+    .o_exec_table {
+        margin-bottom: 0;
+        font-size: 13px;
+
+        thead th {
+            border-bottom-color: var(--exec-border);
+            color: var(--exec-muted);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        tbody td {
+            vertical-align: middle;
+        }
+
+        .badge {
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+    }
+
+    .o_exec_shortage_table {
+        min-width: 1180px;
+    }
+
+    .o_exec_mrp_order_table,
+    .o_exec_maintenance_table {
+        min-width: 1260px;
+    }
+
+    .o_exec_mrp_shortage_table {
+        min-width: 1280px;
+    }
+
+    .o_exec_workcenter_table {
+        min-width: 1080px;
+    }
+
+    .o_exec_equipment_table {
+        min-width: 1120px;
+    }
+
+    .o_exec_alert_table {
+        min-width: 1120px;
+    }
+
+    .o_exec_hr_employee_table,
+    .o_exec_helpdesk_ticket_table {
+        min-width: 1160px;
+    }
+
+    .o_exec_hr_leave_table,
+    .o_exec_hr_contract_table,
+    .o_exec_helpdesk_delayed_table,
+    .o_exec_helpdesk_team_table,
+    .o_exec_pos_product_table,
+    .o_exec_website_product_table,
+    .o_exec_website_customer_table {
+        min-width: 980px;
+    }
+
+    .o_exec_pos_session_table,
+    .o_exec_pos_order_table,
+    .o_exec_website_order_table {
+        min-width: 1120px;
+    }
+
+    .o_exec_shortage_row {
+        background: #fffafa;
+
+        &:hover {
+            background: #fff1f2;
+        }
+    }
+
+    .o_exec_mrp_shortage_row {
+        background: #fff7ed;
+
+        &:hover {
+            background: #ffedd5;
+        }
+    }
+
+    .o_exec_delayed_row {
+        background: #fffafa;
+
+        &:hover {
+            background: #fff1f2;
+        }
+    }
+
+    .o_exec_refund_row {
+        background: #fff7ed;
+
+        &:hover {
+            background: #ffedd5;
+        }
+    }
+
+    .o_exec_clickable_row {
+        cursor: pointer;
+    }
+
+    .o_exec_empty {
+        height: 86px;
+        color: var(--exec-muted);
+        text-align: center;
+        vertical-align: middle;
+    }
+}
+
+@media (max-width: 992px) {
+    .o_executive_dashboard {
+        .o_exec_header {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .o_exec_header_actions {
+            justify-content: flex-start;
+        }
+
+        .o_exec_filters {
+            justify-content: stretch;
+
+            label,
+            .o_exec_clear_filters {
+                flex: 1 1 180px;
+            }
+        }
+
+        .o_exec_tables {
+            grid-template-columns: 1fr;
+        }
+    }
+}
+
+@media (max-width: 576px) {
+    .o_executive_dashboard {
+        padding: 10px;
+
+        .o_exec_kpi_grid,
+        .o_exec_department_grid,
+        .o_exec_chart_grid {
+            grid-template-columns: 1fr;
+        }
+
+        .o_exec_department_metrics {
+            grid-template-columns: 1fr;
+        }
+
+        .o_exec_bar_row {
+            grid-template-columns: minmax(70px, 1fr) minmax(80px, 1.4fr) minmax(54px, auto);
+        }
+
+        .o_exec_table {
+            font-size: 12px;
+        }
+    }
+}
+
+// Export Toolbar
+.o_exec_export_toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+
+        i {
+            font-size: 13px;
+        }
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
+}
+
+@media (max-width: 576px) {
+    .o_exec_export_toolbar {
+        width: 100%;
+        justify-content: flex-start;
+
+        .btn {
+            flex: 1 1 calc(50% - 6px);
+            justify-content: center;
+            min-width: 92px;
+        }
+    }
+}

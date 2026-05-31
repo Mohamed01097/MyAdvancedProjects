@@ -1,0 +1,13 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_dashboard_report_schedule_manager,dashboard.report.schedule.manager,model_executive_dashboard_report_schedule,executive_dashboard.group_dashboard_manager,1,1,1,1
+access_dashboard_report_schedule_system,dashboard.report.schedule.system,model_executive_dashboard_report_schedule,base.group_system,1,1,1,1
+access_dashboard_report_log_user,dashboard.report.log.user,model_executive_dashboard_report_log,base.group_user,1,0,1,0
+access_dashboard_report_log_manager,dashboard.report.log.manager,model_executive_dashboard_report_log,executive_dashboard.group_dashboard_manager,1,1,1,0
+access_dashboard_report_log_system,dashboard.report.log.system,model_executive_dashboard_report_log,base.group_system,1,1,1,0
+access_dashboard_report_send_wizard,dashboard.report.send.wizard,model_executive_dashboard_report_send_wizard,base.group_user,1,1,1,1
+access_dashboard_alert_rule_user,dashboard.alert.rule.user,model_executive_dashboard_alert_rule,base.group_user,1,0,0,0
+access_dashboard_alert_rule_manager,dashboard.alert.rule.manager,model_executive_dashboard_alert_rule,executive_dashboard.group_dashboard_manager,1,1,1,1
+access_dashboard_alert_rule_system,dashboard.alert.rule.system,model_executive_dashboard_alert_rule,base.group_system,1,1,1,1
+access_dashboard_alert_history_user,dashboard.alert.history.user,model_executive_dashboard_alert_history,base.group_user,1,1,0,0
+access_dashboard_alert_history_manager,dashboard.alert.history.manager,model_executive_dashboard_alert_history,executive_dashboard.group_dashboard_manager,1,1,1,0
+access_dashboard_alert_history_system,dashboard.alert.history.system,model_executive_dashboard_alert_history,base.group_system,1,1,1,1

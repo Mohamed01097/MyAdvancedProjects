@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="dynamic_pdf_report_template">
+        <t t-call="web.html_container">
+            <style type="text/css">
+                .dynamic-pdf-report,
+                .dynamic-report-header,
+                .dynamic-pdf-header,
+                .dynamic-pdf-footer {
+                    font-family: Arial, sans-serif;
+                }
+                .dynamic-report-header {
+                    clear: both;
+                    margin-bottom: 0 !important;
+                    border-bottom: 0 !important;
+                    text-align: center;
+                }
+                .dynamic-report-logo-section {
+                    clear: both;
+                    text-align: center;
+                    margin: 0 0 12px 0;
+                }
+                .dynamic-report-logo,
+                .dynamic-pdf-logo {
+                    display: block;
+                    max-height: 70px !important;
+                    max-width: 120px !important;
+                    margin: 0 auto 12px auto;
+                }
+                .dynamic-report-company-section {
+                    text-align: center;
+                    margin-bottom: 10px;
+                }
+                .dynamic-report-title {
+                    clear: both;
+                    display: block;
+                    text-align: center !important;
+                    margin: 0 0 12px 0 !important;
+                }
+                .dynamic-pdf-modern .dynamic-report-header .dynamic-report-title {
+                    color: #FFFFFF !important;
+                }
+                .dynamic-report-separator {
+                    clear: both;
+                    height: 0;
+                    line-height: 0;
+                    margin: 0;
+                }
+                .dynamic-report-table-wrapper,
+                .dynamic-pdf-table-wrapper {
+                    margin-top: 30px !important;
+                    clear: both;
+                }
+                .dynamic-pdf-doc-block {
+                    clear: both;
+                }
+                .dynamic-pdf-line-section {
+                    clear: both;
+                    page-break-inside: auto;
+                }
+                .dynamic-pdf-line-section-title {
+                    clear: both;
+                }
+                .dynamic-pdf-line-table-wrapper {
+                    clear: both;
+                    margin-top: 8px;
+                }
+                .dynamic-pdf-company-name {
+                    font-weight: bold;
+                    margin-bottom: 2px;
+                }
+                .dynamic-pdf-company-address {
+                    white-space: pre-line;
+                    font-size: 10px;
+                    line-height: 1.35;
+                }
+                .dynamic-pdf-table th {
+                    font-weight: bold;
+                }
+                .dynamic-pdf-modern .dynamic-pdf-title {
+                    margin-top: 4px;
+                }
+                .dynamic-pdf-minimal .dynamic-pdf-table th {
+                    font-weight: normal;
+                }
+            </style>
+
+            <div
+                t-attf-class="article page dynamic-pdf-report dynamic-pdf-#{report_config.layout_style}"
+                t-att-style="style['article']"
+                t-att-dir="report_config.direction"
+                t-att-data-oe-model="doc_model"
+                t-att-data-oe-id="doc_ids and doc_ids[0]"
+                t-att-data-oe-lang="docs and docs[0].env.context.get('lang')">
+                <div
+                    t-if="(report_config.show_company_logo and company.logo) or report_config.show_company_name or report_config.show_report_title"
+                    class="dynamic-pdf-header dynamic-report-header"
+                    t-att-style="style['header']"
+                    t-att-dir="report_config.direction">
+                    <div t-if="report_config.show_company_logo and company.logo" class="dynamic-report-logo-section">
+                        <img
+                            class="dynamic-pdf-logo dynamic-report-logo"
+                            t-att-src="image_data_uri(company.logo)"
+                            t-att-style="style['logo']"
+                            alt="Logo"/>
+                    </div>
+                    <div t-if="report_config.show_company_name" class="dynamic-report-company-section" t-att-style="style['header_text']">
+                        <div class="dynamic-pdf-company-name" t-out="company.name"/>
+                        <div
+                            t-if="company.partner_id.contact_address"
+                            class="dynamic-pdf-company-address"
+                            t-out="company.partner_id.contact_address"/>
+                    </div>
+                    <h2 t-if="report_config.show_report_title" class="dynamic-pdf-title dynamic-report-title" t-att-style="style['title']">
+                        <span t-out="report_config.report_title or report_config.name"/>
+                    </h2>
+                    <div class="dynamic-report-separator" t-att-style="'border-top: 1px solid %s;' % report_config.border_color"/>
+                </div>
+
+                <t t-if="not line_section_data">
+                    <div class="dynamic-pdf-table-wrapper dynamic-report-table-wrapper" t-att-style="style['table_wrapper']">
+                        <table class="dynamic-pdf-table" t-att-style="style['table']">
+                            <thead>
+                                <tr>
+                                    <th t-foreach="field_lines" t-as="line" t-att-style="style['th']">
+                                        <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
+                                        <span t-else="" t-out="line.field_name"/>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    t-foreach="report_rows"
+                                    t-as="row"
+                                    t-att-style="style['zebra_row'] if report_config.zebra_rows and row[1] else ''">
+                                    <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
+                                        <span t-out="format_value(row[0], line)"/>
+                                    </td>
+                                </tr>
+                                <tr t-if="not report_rows">
+                                    <td t-att-colspan="len(field_lines)" t-att-style="style['td']">No records selected.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+
+                <t t-if="line_section_data">
+                    <div t-if="not report_rows" class="dynamic-pdf-table-wrapper dynamic-report-table-wrapper" t-att-style="style['table_wrapper']">
+                        <table class="dynamic-pdf-table" t-att-style="style['table']">
+                            <tbody>
+                                <tr>
+                                    <td t-att-colspan="len(field_lines)" t-att-style="style['td']">No records selected.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div
+                        t-foreach="report_rows"
+                        t-as="row"
+                        class="dynamic-pdf-doc-block"
+                        t-att-style="style['doc_block']">
+                        <div class="dynamic-pdf-table-wrapper dynamic-report-table-wrapper" t-att-style="style['table_wrapper']">
+                            <table class="dynamic-pdf-table dynamic-pdf-main-table" t-att-style="style['table']">
+                                <thead>
+                                    <tr>
+                                        <th t-foreach="field_lines" t-as="line" t-att-style="style['th']">
+                                            <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
+                                            <span t-else="" t-out="line.field_name"/>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
+                                            <span t-out="format_value(row[0], line)"/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <t t-foreach="line_section_data" t-as="section_data">
+                            <t t-set="section" t-value="section_data['section']"/>
+                            <t t-set="line_fields" t-value="section_data['field_lines']"/>
+                            <t t-set="line_records" t-value="get_line_records(row[0], section)"/>
+                            <div t-if="line_records" class="dynamic-pdf-line-section" t-att-style="style['line_section']">
+                                <h3
+                                    t-if="section.show_section_title"
+                                    class="dynamic-pdf-line-section-title"
+                                    t-att-style="style['line_section_title']">
+                                    <span t-out="section.name"/>
+                                </h3>
+                                <div class="dynamic-pdf-line-table-wrapper" t-att-style="style['table_wrapper']">
+                                    <table class="dynamic-pdf-table dynamic-pdf-line-table" t-att-style="style['table']">
+                                        <thead>
+                                            <tr>
+                                                <th t-foreach="line_fields" t-as="line" t-att-style="style['th']">
+                                                    <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
+                                                    <span t-else="" t-out="line.field_name"/>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr
+                                                t-foreach="get_record_rows(line_records)"
+                                                t-as="line_row"
+                                                t-att-style="style['zebra_row'] if report_config.zebra_rows and line_row[1] else ''">
+                                                <td t-foreach="line_fields" t-as="line" t-att-style="style['td']">
+                                                    <span t-out="format_value(line_row[0], line)"/>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+            </div>
+
+            <div
+                t-if="report_config.show_footer"
+                class="footer dynamic-pdf-footer"
+                t-att-style="style['footer']"
+                t-att-dir="report_config.direction">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="width: 55%; vertical-align: top;">
+                            <span t-if="report_config.footer_text" t-out="report_config.footer_text"/>
+                            <span t-if="template_preset_label">
+                                <br/>
+                                Generated from template: <span t-out="template_preset_label"/>
+                            </span>
+                        </td>
+                        <td style="width: 45%; vertical-align: top; text-align: right;">
+                            <span t-if="report_config.show_print_date" t-out="print_date"/>
+                            <span t-if="report_config.show_print_date and report_config.show_page_number and report_type == 'pdf'"> | </span>
+                            <span t-if="report_config.show_page_number and report_type == 'pdf'">
+                                Page <span class="page"/> / <span class="topage"/>
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </t>
+    </template>
+</odoo>

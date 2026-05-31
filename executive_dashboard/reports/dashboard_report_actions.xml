@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_dashboard_report_pdf" model="ir.actions.report">
+        <field name="name">Executive Dashboard Report</field>
+        <field name="model">res.company</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">executive_dashboard.dashboard_report_document</field>
+        <field name="report_file">executive_dashboard.dashboard_report_document</field>
+    </record>
+</odoo>
