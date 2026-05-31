@@ -1,8 +1,11 @@
+from datetime import date, datetime
+from urllib.parse import quote
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import format_date, format_datetime, html2plaintext
 
-from ..const import ALLOWED_FIELD_TYPES, REPORT_TEMPLATE_XML_ID
+from ..const import ALLOWED_FIELD_TYPES, BLOCK_POSITIONS, REPORT_TEMPLATE_XML_ID
 
 
 class ReportDynamicPdfReport(models.AbstractModel):
@@ -32,15 +35,19 @@ class ReportDynamicPdfReport(models.AbstractModel):
         docs = self.env[report_config.model_name].browse(docids)
         report_rows = self._get_record_rows(docs)
         line_section_data = self._get_line_section_data(report_config)
+        active_blocks = report_config.block_ids.filtered("is_active").sorted("sequence")
+        blocks_by_position = self._get_blocks_by_position(active_blocks)
 
         return {
             "doc_ids": docids,
             "doc_model": report_config.model_name,
             "docs": docs,
+            "primary_doc": docs[:1],
             "report_rows": report_rows,
             "report_config": report_config,
             "field_lines": field_lines,
             "line_section_data": line_section_data,
+            "blocks_by_position": blocks_by_position,
             "company": self.env.company,
             "print_date": format_datetime(self.env, fields.Datetime.now()),
             "template_preset_label": self._get_template_preset_label(report_config),
@@ -48,7 +55,81 @@ class ReportDynamicPdfReport(models.AbstractModel):
             "format_value": self._format_value,
             "get_line_records": self._get_line_records,
             "get_record_rows": self._get_record_rows,
+            "get_blocks": self._get_blocks,
+            "get_block_title": self._get_block_title,
+            "get_barcode_url": self._get_barcode_url,
         }
+
+    @api.model
+    def _get_blocks_by_position(self, blocks):
+        return {
+            position: blocks.filtered(lambda block, position=position: block.position == position)
+            for position in BLOCK_POSITIONS
+        }
+
+    @api.model
+    def _get_blocks(self, blocks_by_position, position):
+        return blocks_by_position.get(position, self.env["dynamic.pdf.report.block"])
+
+    @api.model
+    def _get_block_title(self, block):
+        if block.title:
+            return block.title
+        if block.block_type == "terms_conditions":
+            return _("Terms & Conditions")
+        if block.block_type == "note":
+            return _("Notes")
+        return ""
+
+    @api.model
+    def _get_block_value(self, block, record):
+        source_type = block.source_type or "record_name"
+        if source_type == "static_value":
+            return block.static_value or ""
+        if source_type == "custom_url":
+            record_id = record[:1].id if record else ""
+            return "%s%s" % (block.custom_url_prefix or "", record_id)
+        if not record:
+            return ""
+
+        record = record[:1]
+        if source_type == "record_name":
+            return record.display_name or ""
+        if source_type == "field_value":
+            field = block.source_field_id
+            if not field or field.name not in record._fields:
+                return ""
+            value = record[field.name]
+            if field.ttype == "selection" and value:
+                selection = dict(record._fields[field.name]._description_selection(self.env))
+                return selection.get(value, value)
+            return self._format_block_value(value)
+        return ""
+
+    @api.model
+    def _format_block_value(self, value):
+        if value is False or value is None:
+            return ""
+        if hasattr(value, "mapped") and hasattr(value, "_name"):
+            return ", ".join(value.mapped("display_name"))
+        if isinstance(value, datetime):
+            return format_datetime(self.env, value)
+        if isinstance(value, date):
+            return format_date(self.env, value)
+        return str(value)
+
+    @api.model
+    def _get_barcode_url(self, block, record, barcode_type):
+        value = self._get_block_value(block, record)
+        if not value:
+            return ""
+        size = max(block.size or 120, 1)
+        return "/report/barcode/%s/%s?width=%d&height=%d" % (
+            barcode_type,
+            quote(str(value), safe=""),
+            size,
+            size,
+        )
 
     @api.model
     def _get_template_preset_label(self, report_config):
@@ -217,6 +298,42 @@ class ReportDynamicPdfReport(models.AbstractModel):
                 "primary_color": report_config.primary_color,
                 "section_font_size": font_size + 2,
                 "text_align": text_align,
+            },
+            "block": (
+                "clear: both; margin: 12px 0; color: %(text_color)s; "
+                "font-size: %(font_size)dpx; page-break-inside: avoid;"
+            ) % {
+                "text_color": report_config.text_color,
+                "font_size": font_size,
+            },
+            "block_title": (
+                "color: %(primary_color)s; font-size: %(title_size)dpx; "
+                "font-weight: bold; margin: 0 0 6px 0;"
+            ) % {
+                "primary_color": report_config.primary_color,
+                "title_size": font_size + 2,
+            },
+            "block_content": "line-height: 1.45;",
+            "signature": (
+                "display: inline-block; min-width: 220px; max-width: 100%%; "
+                "color: %(text_color)s;"
+            ) % {
+                "text_color": report_config.text_color,
+            },
+            "signature_line": (
+                "border-top: 1px solid %(border_color)s; width: 220px; "
+                "height: 1px; margin: 28px 0 6px 0;"
+            ) % {
+                "border_color": report_config.border_color,
+            },
+            "watermark": (
+                "clear: both; text-align: center; color: %(primary_color)s; "
+                "font-size: %(watermark_size)dpx; "
+                "font-weight: bold; line-height: 1.2; margin: 8px 0 14px 0; "
+                "padding: 6px 0;"
+            ) % {
+                "primary_color": report_config.primary_color,
+                "watermark_size": font_size + 26,
             },
         }
 

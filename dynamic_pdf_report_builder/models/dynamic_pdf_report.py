@@ -3,7 +3,13 @@ import re
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-from ..const import ALLOWED_FIELD_TYPES, PAPERFORMAT_VALUES, PAPERFORMAT_XML_IDS, REPORT_TEMPLATE_XML_ID
+from ..const import (
+    ALLOWED_FIELD_TYPES,
+    BLOCK_SOURCE_FIELD_TYPES,
+    PAPERFORMAT_VALUES,
+    PAPERFORMAT_XML_IDS,
+    REPORT_TEMPLATE_XML_ID,
+)
 
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -97,6 +103,7 @@ class DynamicPdfReport(models.Model):
     report_title = fields.Char()
     field_line_ids = fields.One2many("dynamic.pdf.report.field", "report_id")
     line_section_ids = fields.One2many("dynamic.pdf.report.line.section", "report_id")
+    block_ids = fields.One2many("dynamic.pdf.report.block", "report_id")
     report_action_id = fields.Many2one(
         "ir.actions.report",
         readonly=True,
@@ -162,6 +169,8 @@ class DynamicPdfReport(models.Model):
             self.field_line_ids = False
         if self.line_section_ids:
             self.line_section_ids = False
+        for block in self.block_ids:
+            block.source_field_id = False
 
     @api.constrains("model_id")
     def _check_report_model(self):
@@ -171,7 +180,7 @@ class DynamicPdfReport(models.Model):
             if report.model_id.abstract:
                 raise ValidationError(_("You cannot create dynamic PDF reports for abstract models."))
 
-    @api.constrains("model_id", "field_line_ids", "line_section_ids")
+    @api.constrains("model_id", "field_line_ids", "line_section_ids", "block_ids")
     def _check_field_lines_match_model(self):
         for report in self:
             wrong_lines = report.field_line_ids.filtered(
@@ -184,6 +193,11 @@ class DynamicPdfReport(models.Model):
             )
             if wrong_sections:
                 raise ValidationError(_("All line sections must use One2many fields from the selected model."))
+            wrong_blocks = report.block_ids.filtered(
+                lambda block: block.source_field_id and block.source_field_id.model_id != report.model_id
+            )
+            if wrong_blocks:
+                raise ValidationError(_("All block source fields must belong to the selected model."))
 
     @api.constrains(*COLOR_FIELDS)
     def _check_hex_colors(self):
@@ -309,6 +323,29 @@ class DynamicPdfReport(models.Model):
             for section in self.line_section_ids.sorted("sequence")
             if section.one2many_field_id
         ]
+        vals["block_ids"] = [
+            (0, 0, {
+                "sequence": block.sequence,
+                "block_type": block.block_type,
+                "title": block.title,
+                "content": block.content,
+                "position": block.position,
+                "alignment": block.alignment,
+                "is_active": block.is_active,
+                "source_type": block.source_type,
+                "source_field_id": block.source_field_id.id,
+                "static_value": block.static_value,
+                "custom_url_prefix": block.custom_url_prefix,
+                "size": block.size,
+                "signature_label": block.signature_label,
+                "signer_name": block.signer_name,
+                "signer_position": block.signer_position,
+                "show_signature_line": block.show_signature_line,
+                "watermark_text": block.watermark_text,
+                "watermark_opacity": block.watermark_opacity,
+            })
+            for block in self.block_ids.sorted("sequence")
+        ]
         return vals
 
     def _validate_report_configuration(self):
@@ -341,6 +378,12 @@ class DynamicPdfReport(models.Model):
             raise UserError(_("All selected fields must belong to the selected model."))
 
         self._validate_line_sections()
+        self._validate_blocks()
+
+    def _validate_blocks(self):
+        self.ensure_one()
+        for block in self.block_ids:
+            block._validate_block_configuration()
 
     def _validate_line_sections(self):
         self.ensure_one()
@@ -473,6 +516,120 @@ class DynamicPdfReportField(models.Model):
             if line.field_type not in ALLOWED_FIELD_TYPES:
                 allowed_types = ", ".join(ALLOWED_FIELD_TYPES)
                 raise ValidationError(_("Phase 1 supports only these field types: %s", allowed_types))
+
+
+class DynamicPdfReportBlock(models.Model):
+    _name = "dynamic.pdf.report.block"
+    _description = "Dynamic PDF Report Visual Block"
+    _order = "sequence, id"
+
+    report_id = fields.Many2one(
+        "dynamic.pdf.report",
+        required=True,
+        ondelete="cascade",
+    )
+    sequence = fields.Integer(default=10)
+    block_type = fields.Selection(
+        [
+            ("static_text", "Static Text"),
+            ("terms_conditions", "Terms & Conditions"),
+            ("signature", "Signature"),
+            ("qr_code", "QR Code"),
+            ("barcode", "Barcode"),
+            ("watermark", "Watermark"),
+            ("note", "Note"),
+        ],
+        required=True,
+    )
+    title = fields.Char()
+    content = fields.Html(sanitize=True)
+    position = fields.Selection(
+        [
+            ("before_main_table", "Before Main Table"),
+            ("after_main_table", "After Main Table"),
+            ("before_line_sections", "Before Line Sections"),
+            ("after_line_sections", "After Line Sections"),
+            ("footer_area", "Footer Area"),
+        ],
+        default="after_main_table",
+        required=True,
+    )
+    alignment = fields.Selection(
+        [("left", "Left"), ("center", "Center"), ("right", "Right")],
+        default="left",
+        required=True,
+    )
+    is_active = fields.Boolean(default=True)
+    source_type = fields.Selection(
+        [
+            ("record_name", "Record Name"),
+            ("field_value", "Field Value"),
+            ("static_value", "Static Value"),
+            ("custom_url", "Custom URL"),
+        ],
+        default="record_name",
+        required=True,
+    )
+    source_field_id = fields.Many2one(
+        "ir.model.fields",
+        ondelete="cascade",
+        domain=[("ttype", "in", BLOCK_SOURCE_FIELD_TYPES)],
+    )
+    static_value = fields.Char()
+    custom_url_prefix = fields.Char()
+    size = fields.Integer(default=120)
+    signature_label = fields.Char(default="Signature")
+    signer_name = fields.Char()
+    signer_position = fields.Char()
+    show_signature_line = fields.Boolean(default=True)
+    watermark_text = fields.Char(default="CONFIDENTIAL")
+    watermark_opacity = fields.Float(default=0.08)
+
+    @api.onchange("source_type")
+    def _onchange_source_type(self):
+        if self.source_type != "field_value":
+            self.source_field_id = False
+
+    @api.constrains(
+        "report_id",
+        "block_type",
+        "source_type",
+        "source_field_id",
+        "static_value",
+        "custom_url_prefix",
+        "size",
+        "watermark_text",
+        "watermark_opacity",
+    )
+    def _check_block_configuration(self):
+        for block in self:
+            block._validate_block_configuration(use_validation_error=True)
+
+    def _validate_block_configuration(self, use_validation_error=False):
+        self.ensure_one()
+        error = ValidationError if use_validation_error else UserError
+
+        if self.source_field_id:
+            if self.source_field_id.ttype not in BLOCK_SOURCE_FIELD_TYPES:
+                allowed_types = ", ".join(BLOCK_SOURCE_FIELD_TYPES)
+                raise error(_("QR and barcode source fields support only these field types: %s", allowed_types))
+            if self.report_id and self.source_field_id.model_id != self.report_id.model_id:
+                raise error(_("The QR/barcode source field must belong to the selected report model."))
+
+        if self.block_type in ("qr_code", "barcode"):
+            if (self.size or 0) <= 0:
+                raise error(_("QR code and barcode size must be greater than zero."))
+            if self.source_type == "field_value" and not self.source_field_id:
+                raise error(_("Select a source field for QR/barcode blocks using field value."))
+            if self.source_type == "static_value" and not self.static_value:
+                raise error(_("Enter a static value for QR/barcode blocks using static value."))
+            if self.source_type == "custom_url" and not self.custom_url_prefix:
+                raise error(_("Enter a custom URL prefix for QR/barcode blocks using custom URL."))
+
+        if self.block_type == "watermark" and not self.watermark_text:
+            raise error(_("Enter watermark text for watermark blocks."))
+        if self.block_type == "watermark" and not 0 <= self.watermark_opacity <= 1:
+            raise error(_("Watermark opacity must be between 0 and 1."))
 
 
 class DynamicPdfReportLineSection(models.Model):

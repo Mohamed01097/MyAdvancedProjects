@@ -121,6 +121,73 @@
                                 </form>
                             </field>
                         </page>
+                        <page string="Visual Blocks">
+                            <field name="block_ids" mode="list,form">
+                                <list string="Visual Blocks" editable="bottom" open_form_view="True">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="block_type"/>
+                                    <field name="title"/>
+                                    <field name="position"/>
+                                    <field name="alignment"/>
+                                    <field name="is_active"/>
+                                </list>
+                                <form string="Visual Block">
+                                    <sheet>
+                                        <group>
+                                            <group string="General">
+                                                <field name="sequence"/>
+                                                <field name="block_type"/>
+                                                <field name="title"/>
+                                                <field name="position"/>
+                                                <field name="alignment"/>
+                                                <field name="is_active"/>
+                                            </group>
+                                        </group>
+                                        <group
+                                            string="Content"
+                                            invisible="block_type not in ['static_text', 'terms_conditions', 'note']">
+                                            <field name="content" widget="html" nolabel="1"/>
+                                        </group>
+                                        <group
+                                            string="QR / Barcode Settings"
+                                            invisible="block_type not in ['qr_code', 'barcode']">
+                                            <group>
+                                                <field name="source_type"/>
+                                                <field
+                                                    name="source_field_id"
+                                                    domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'integer', 'float', 'date', 'datetime', 'selection', 'many2one'])]"
+                                                    invisible="source_type != 'field_value'"/>
+                                                <field name="static_value" invisible="source_type != 'static_value'"/>
+                                                <field name="custom_url_prefix" invisible="source_type != 'custom_url'"/>
+                                            </group>
+                                            <group>
+                                                <field name="size"/>
+                                            </group>
+                                        </group>
+                                        <group
+                                            string="Signature Settings"
+                                            invisible="block_type != 'signature'">
+                                            <group>
+                                                <field name="signature_label"/>
+                                                <field name="show_signature_line"/>
+                                            </group>
+                                            <group>
+                                                <field name="signer_name"/>
+                                                <field name="signer_position"/>
+                                            </group>
+                                        </group>
+                                        <group
+                                            string="Watermark Settings"
+                                            invisible="block_type != 'watermark'">
+                                            <group>
+                                                <field name="watermark_text"/>
+                                                <field name="watermark_opacity"/>
+                                            </group>
+                                        </group>
+                                    </sheet>
+                                </form>
+                            </field>
+                        </page>
                         <page string="Layout &amp; Styling">
                             <group>
                                 <group string="Layout">

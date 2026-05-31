@@ -12,6 +12,25 @@ ALLOWED_FIELD_TYPES = (
     "many2one",
 )
 
+BLOCK_SOURCE_FIELD_TYPES = (
+    "char",
+    "text",
+    "integer",
+    "float",
+    "date",
+    "datetime",
+    "selection",
+    "many2one",
+)
+
+BLOCK_POSITIONS = (
+    "before_main_table",
+    "after_main_table",
+    "before_line_sections",
+    "after_line_sections",
+    "footer_area",
+)
+
 REPORT_TEMPLATE_XML_ID = "dynamic_pdf_report_builder.dynamic_pdf_report_template"
 
 PAPERFORMAT_XML_IDS = {
