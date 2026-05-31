@@ -1,11 +1,14 @@
+import ast
 import re
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from odoo.tools import sql
 
 from ..const import (
     ALLOWED_FIELD_TYPES,
     BLOCK_SOURCE_FIELD_TYPES,
+    FORMULA_FIELD_TYPES,
     PAPERFORMAT_VALUES,
     PAPERFORMAT_XML_IDS,
     REPORT_TEMPLATE_XML_ID,
@@ -13,6 +16,21 @@ from ..const import (
 
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+FORMULA_CODE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+CONCAT_TOKEN_SPLIT_RE = re.compile(r"[\s,;+]+")
+ALLOWED_FORMULA_BINOPS = (ast.Add, ast.Sub, ast.Mult, ast.Div)
+ALLOWED_FORMULA_UNARYOPS = (ast.UAdd, ast.USub)
+ALLOWED_FORMULA_CMPOPS = (ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
+ALLOWED_FORMULA_NODES = (
+    ast.Expression,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.Compare,
+    ast.Call,
+    ast.Name,
+    ast.Load,
+    ast.Constant,
+)
 COLOR_FIELDS = (
     "primary_color",
     "secondary_color",
@@ -104,6 +122,11 @@ class DynamicPdfReport(models.Model):
     field_line_ids = fields.One2many("dynamic.pdf.report.field", "report_id")
     line_section_ids = fields.One2many("dynamic.pdf.report.line.section", "report_id")
     block_ids = fields.One2many("dynamic.pdf.report.block", "report_id")
+    formula_ids = fields.One2many(
+        "dynamic.pdf.report.formula",
+        "report_id",
+        context={"active_test": False},
+    )
     report_action_id = fields.Many2one(
         "ir.actions.report",
         readonly=True,
@@ -171,6 +194,8 @@ class DynamicPdfReport(models.Model):
             self.line_section_ids = False
         for block in self.block_ids:
             block.source_field_id = False
+        for formula in self.formula_ids:
+            formula.line_section_id = False
 
     @api.constrains("model_id")
     def _check_report_model(self):
@@ -180,7 +205,7 @@ class DynamicPdfReport(models.Model):
             if report.model_id.abstract:
                 raise ValidationError(_("You cannot create dynamic PDF reports for abstract models."))
 
-    @api.constrains("model_id", "field_line_ids", "line_section_ids", "block_ids")
+    @api.constrains("model_id", "field_line_ids", "line_section_ids", "block_ids", "formula_ids")
     def _check_field_lines_match_model(self):
         for report in self:
             wrong_lines = report.field_line_ids.filtered(
@@ -198,6 +223,11 @@ class DynamicPdfReport(models.Model):
             )
             if wrong_blocks:
                 raise ValidationError(_("All block source fields must belong to the selected model."))
+            wrong_formulas = report.with_context(active_test=False).formula_ids.filtered(
+                lambda formula: formula.line_section_id and formula.line_section_id.report_id != report
+            )
+            if wrong_formulas:
+                raise ValidationError(_("All line-section formulas must use sections from the same report."))
 
     @api.constrains(*COLOR_FIELDS)
     def _check_hex_colors(self):
@@ -249,6 +279,7 @@ class DynamicPdfReport(models.Model):
             raise UserError(_("Save the report before duplicating the design."))
 
         new_report = self.create(self._prepare_duplicate_design_vals())
+        self._copy_duplicate_formulas(new_report)
         return {
             "type": "ir.actions.act_window",
             "name": _("Copy of %s", self.name),
@@ -348,6 +379,43 @@ class DynamicPdfReport(models.Model):
         ]
         return vals
 
+    def _copy_duplicate_formulas(self, new_report):
+        self.ensure_one()
+        section_map = {}
+        for section in self.line_section_ids:
+            new_section = new_report.line_section_ids.filtered(
+                lambda line_section, section=section: line_section.one2many_field_id == section.one2many_field_id
+            )[:1]
+            if new_section:
+                section_map[section.id] = new_section.id
+
+        formula_commands = []
+        for formula in self.with_context(active_test=False).formula_ids.sorted("sequence"):
+            line_section_id = False
+            if formula.scope == "line_section":
+                line_section_id = section_map.get(formula.line_section_id.id)
+                if not line_section_id:
+                    continue
+            formula_commands.append((0, 0, {
+                "name": formula.name,
+                "code": formula.code,
+                "scope": formula.scope,
+                "line_section_id": line_section_id,
+                "formula_type": formula.formula_type,
+                "sequence": formula.sequence,
+                "active": formula.active,
+                "formula_expression": formula.formula_expression,
+                "separator": formula.separator,
+                "condition_expression": formula.condition_expression,
+                "true_value": formula.true_value,
+                "false_value": formula.false_value,
+                "output_label": formula.output_label,
+                "show_in_report": formula.show_in_report,
+                "show_in_line_tables": formula.show_in_line_tables,
+            }))
+        if formula_commands:
+            new_report.with_context(active_test=False).write({"formula_ids": formula_commands})
+
     def _validate_report_configuration(self):
         self.ensure_one()
         if not self.model_id:
@@ -379,11 +447,17 @@ class DynamicPdfReport(models.Model):
 
         self._validate_line_sections()
         self._validate_blocks()
+        self._validate_formulas()
 
     def _validate_blocks(self):
         self.ensure_one()
         for block in self.block_ids:
             block._validate_block_configuration()
+
+    def _validate_formulas(self):
+        self.ensure_one()
+        for formula in self.with_context(active_test=False).formula_ids:
+            formula._validate_formula_configuration()
 
     def _validate_line_sections(self):
         self.ensure_one()
@@ -630,6 +704,353 @@ class DynamicPdfReportBlock(models.Model):
             raise error(_("Enter watermark text for watermark blocks."))
         if self.block_type == "watermark" and not 0 <= self.watermark_opacity <= 1:
             raise error(_("Watermark opacity must be between 0 and 1."))
+
+
+class DynamicPdfReportFormula(models.Model):
+    _name = "dynamic.pdf.report.formula"
+    _description = "Dynamic PDF Report Formula"
+    _order = "sequence, id"
+
+    _unique_report_formula_code = models.Constraint(
+        "unique(report_id, code)",
+        "Formula code must be unique per report.",
+    )
+
+    report_id = fields.Many2one(
+        "dynamic.pdf.report",
+        required=True,
+        ondelete="cascade",
+    )
+    name = fields.Char(required=True)
+    code = fields.Char()
+    scope = fields.Selection(
+        [("main_record", "Main Record"), ("line_section", "Line Section")],
+        default="main_record",
+        required=True,
+    )
+    line_section_id = fields.Many2one(
+        "dynamic.pdf.report.line.section",
+        ondelete="cascade",
+    )
+    formula_type = fields.Selection(
+        [
+            ("arithmetic", "Arithmetic"),
+            ("concat", "Concat"),
+            ("conditional", "Conditional"),
+        ],
+        default="arithmetic",
+        required=True,
+    )
+    sequence = fields.Integer(default=10)
+    active = fields.Boolean(default=True)
+    formula_expression = fields.Text()
+    separator = fields.Char(default=" - ")
+    condition_expression = fields.Text()
+    true_value = fields.Char()
+    false_value = fields.Char()
+    output_label = fields.Char()
+    show_in_report = fields.Boolean(default=True)
+    show_in_line_tables = fields.Boolean(default=True)
+
+    def init(self):
+        if not sql.table_exists(self.env.cr, self._table) or not sql.column_exists(self.env.cr, self._table, "code"):
+            return
+
+        self.env.cr.execute(
+            """
+            SELECT id, report_id, COALESCE(name, ''), COALESCE(code, '')
+              FROM dynamic_pdf_report_formula
+             ORDER BY report_id, id
+            """
+        )
+        rows = self.env.cr.fetchall()
+        used_codes_by_report = {}
+        for _formula_id, report_id, _name, code in rows:
+            if code:
+                used_codes_by_report.setdefault(report_id, set()).add(code)
+
+        updates = []
+        for formula_id, report_id, name, code in rows:
+            if code:
+                continue
+            used_codes = used_codes_by_report.setdefault(report_id, set())
+            updates.append((self._make_unique_formula_code_for_set(name or "formula", used_codes), formula_id))
+
+        if updates:
+            self.env.cr.executemany(
+                "UPDATE dynamic_pdf_report_formula SET code = %s WHERE id = %s",
+                updates,
+            )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        reserved_codes_by_report = {}
+        prepared_vals_list = []
+        for vals in vals_list:
+            vals = dict(vals)
+            self._prepare_formula_code_vals(vals, reserved_codes_by_report=reserved_codes_by_report)
+            prepared_vals_list.append(vals)
+        return super().create(prepared_vals_list)
+
+    def write(self, vals):
+        if self.env.context.get("skip_formula_code_autofill"):
+            return super().write(vals)
+
+        should_prepare_code = (
+            "code" in vals
+            or "report_id" in vals
+            or "name" in vals
+            or any(not formula.code for formula in self)
+        )
+        if not should_prepare_code:
+            return super().write(vals)
+
+        reserved_codes_by_report = {}
+        for formula in self:
+            formula_vals = dict(vals)
+            if "code" in vals or "report_id" in vals or not formula.code:
+                formula._prepare_formula_code_vals(
+                    formula_vals,
+                    formula=formula,
+                    reserved_codes_by_report=reserved_codes_by_report,
+                )
+            super(DynamicPdfReportFormula, formula).write(formula_vals)
+        return True
+
+    @api.onchange("name")
+    def _onchange_name_formula_code(self):
+        for formula in self:
+            if formula.name and not formula.code:
+                formula.code = formula._slugify_formula_code(formula.name)
+
+    @api.onchange("scope")
+    def _onchange_scope(self):
+        if self.scope != "line_section":
+            self.line_section_id = False
+
+    @api.constrains(
+        "report_id",
+        "name",
+        "code",
+        "scope",
+        "line_section_id",
+        "formula_type",
+        "formula_expression",
+        "condition_expression",
+    )
+    def _check_formula_configuration(self):
+        for formula in self:
+            formula._validate_formula_configuration(use_validation_error=True)
+
+    def _validate_formula_configuration(self, use_validation_error=False):
+        self.ensure_one()
+        error = ValidationError if use_validation_error else UserError
+
+        if not self.name:
+            raise error(_("Formula name is required."))
+        if not self.code:
+            self._ensure_formula_code()
+        if not FORMULA_CODE_RE.match(self.code or ""):
+            raise error(_("Formula code must start with a letter or underscore and contain only letters, numbers, and underscores."))
+
+        target_model_name = self._get_formula_target_model_name(error)
+        if not target_model_name:
+            return
+
+        if self.formula_type == "arithmetic":
+            expression = (self.formula_expression or "").strip()
+            if not expression:
+                raise error(_("Formula '%s' must have an arithmetic expression.", self.name))
+            self._validate_safe_expression(expression, target_model_name, error, allow_compare=False)
+            self._check_literal_division_by_zero(expression, error)
+        elif self.formula_type == "concat":
+            field_names = self._get_concat_field_names(error)
+            if not field_names:
+                raise error(_("Formula '%s' must list at least one field to concatenate.", self.name))
+            self._validate_formula_field_names(field_names, target_model_name, error)
+        elif self.formula_type == "conditional":
+            expression = (self.condition_expression or "").strip()
+            if not expression:
+                raise error(_("Formula '%s' must have a condition expression.", self.name))
+            self._validate_safe_expression(expression, target_model_name, error, allow_compare=True)
+            self._check_literal_division_by_zero(expression, error)
+        else:
+            raise error(_("Formula '%s' has an invalid formula type.", self.name))
+
+    def _get_formula_target_model_name(self, error):
+        self.ensure_one()
+        if not self.report_id:
+            return False
+        if self.scope == "main_record":
+            if self.line_section_id:
+                raise error(_("Main-record formula '%s' cannot be linked to a line section.", self.name))
+            model_name = self.report_id.model_name
+        elif self.scope == "line_section":
+            if not self.line_section_id:
+                raise error(_("Line-section formula '%s' must have a line section.", self.name))
+            if self.line_section_id.report_id != self.report_id:
+                raise error(_("Line-section formula '%s' must use a section from the same report.", self.name))
+            model_name = self.line_section_id.related_model_name
+        else:
+            raise error(_("Formula '%s' has an invalid scope.", self.name))
+
+        if not model_name or model_name not in self.env:
+            raise error(_("Formula '%s' has an unavailable target model.", self.name))
+        return model_name
+
+    def _validate_safe_expression(self, expression, model_name, error, allow_compare=False):
+        self.ensure_one()
+        try:
+            tree = ast.parse(expression, mode="eval")
+        except SyntaxError as exception:
+            raise error(_("Formula '%(formula)s' has invalid syntax: %(error)s", formula=self.name, error=exception.msg))
+
+        parents = {
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
+        }
+        field_names = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ALLOWED_FORMULA_NODES + ALLOWED_FORMULA_BINOPS + ALLOWED_FORMULA_UNARYOPS + ALLOWED_FORMULA_CMPOPS):
+                raise error(_("Formula '%s' contains an unsupported expression.", self.name))
+            if isinstance(node, ast.BinOp) and not isinstance(node.op, ALLOWED_FORMULA_BINOPS):
+                raise error(_("Formula '%s' uses an unsupported operator.", self.name))
+            if isinstance(node, ast.UnaryOp) and not isinstance(node.op, ALLOWED_FORMULA_UNARYOPS):
+                raise error(_("Formula '%s' uses an unsupported unary operator.", self.name))
+            if isinstance(node, ast.Compare):
+                if not allow_compare:
+                    raise error(_("Arithmetic formula '%s' cannot use comparison operators.", self.name))
+                if any(not isinstance(operator, ALLOWED_FORMULA_CMPOPS) for operator in node.ops):
+                    raise error(_("Formula '%s' uses an unsupported comparison operator.", self.name))
+            if isinstance(node, ast.Call):
+                if not isinstance(node.func, ast.Name) or node.func.id != "round" or node.keywords or len(node.args) not in (1, 2):
+                    raise error(_("Formula '%s' can only call round(value[, digits]).", self.name))
+            if isinstance(node, ast.Name):
+                if node.id == "round":
+                    parent = parents.get(node)
+                    if not isinstance(parent, ast.Call) or parent.func is not node:
+                        raise error(_("Formula '%s' can only use round as a function call.", self.name))
+                else:
+                    field_names.add(node.id)
+            if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float, str, bool, type(None))):
+                raise error(_("Formula '%s' contains an unsupported literal value.", self.name))
+
+        self._validate_formula_field_names(field_names, model_name, error)
+
+    def _validate_formula_field_names(self, field_names, model_name, error):
+        self.ensure_one()
+        model_fields = self.env[model_name]._fields
+        for field_name in field_names:
+            if field_name not in model_fields:
+                raise error(_("Formula '%(formula)s' references unknown field '%(field)s'.", formula=self.name, field=field_name))
+            if model_fields[field_name].type not in FORMULA_FIELD_TYPES:
+                allowed_types = ", ".join(FORMULA_FIELD_TYPES)
+                raise error(
+                    _("Formula '%(formula)s' field '%(field)s' has unsupported type. Supported types: %(types)s",
+                      formula=self.name, field=field_name, types=allowed_types)
+                )
+
+    def _get_concat_field_names(self, error=ValidationError):
+        self.ensure_one()
+        expression = (self.formula_expression or "").strip()
+        field_names = []
+        for token in CONCAT_TOKEN_SPLIT_RE.split(expression):
+            if not token:
+                continue
+            if not FORMULA_CODE_RE.match(token):
+                raise error(_("Concat formula '%(formula)s' contains invalid field token '%(token)s'.", formula=self.name, token=token))
+            field_names.append(token)
+        return field_names
+
+    def _check_literal_division_by_zero(self, expression, error):
+        self.ensure_one()
+        tree = ast.parse(expression, mode="eval")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div) and self._is_literal_zero(node.right):
+                raise error(_("Formula '%s' divides by zero.", self.name))
+
+    def _is_literal_zero(self, node):
+        if isinstance(node, ast.Constant):
+            return node.value == 0
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            return self._is_literal_zero(node.operand)
+        return False
+
+    def _prepare_formula_code_vals(self, vals, formula=False, reserved_codes_by_report=None):
+        reserved_codes_by_report = reserved_codes_by_report if reserved_codes_by_report is not None else {}
+        raw_code = vals.get("code")
+        current_code = formula.code if formula else False
+        should_generate = "code" not in vals or not (raw_code or "").strip()
+
+        if not should_generate and raw_code == current_code and "report_id" not in vals:
+            vals["code"] = raw_code
+            return vals
+
+        report_id = vals.get("report_id") or (formula.report_id.id if formula else False)
+        base = vals.get("name") or (formula.name if formula else False) or raw_code or current_code or "formula"
+        if not should_generate:
+            base = raw_code
+
+        reserved_codes = reserved_codes_by_report.setdefault(report_id or 0, set())
+        vals["code"] = self._make_unique_formula_code(
+            base,
+            report_id,
+            exclude_ids=formula.ids if formula else False,
+            reserved_codes=reserved_codes,
+        )
+        return vals
+
+    @api.model
+    def _make_unique_formula_code(self, base, report_id=False, exclude_ids=False, reserved_codes=None):
+        used_codes = set(reserved_codes or ())
+        if report_id:
+            domain = [("report_id", "=", report_id), ("code", "!=", False)]
+            if exclude_ids:
+                domain.append(("id", "not in", exclude_ids))
+            used_codes.update(self.with_context(active_test=False).search(domain).mapped("code"))
+
+        code = self._make_unique_formula_code_for_set(base, used_codes)
+        if reserved_codes is not None:
+            reserved_codes.add(code)
+        return code
+
+    @api.model
+    def _make_unique_formula_code_for_set(self, base, used_codes):
+        base_code = self._slugify_formula_code(base)
+        code = base_code
+        suffix = 2
+        while code in used_codes:
+            code = "%s_%s" % (base_code, suffix)
+            suffix += 1
+        used_codes.add(code)
+        return code
+
+    @api.model
+    def _slugify_formula_code(self, value):
+        code = (value or "").strip().lower()
+        code = re.sub(r"[^a-z0-9_]+", "_", code)
+        code = re.sub(r"_+", "_", code).strip("_")
+        if not code:
+            code = "formula"
+        if not re.match(r"^[a-z_]", code):
+            code = "formula_%s" % code
+        return code
+
+    def _ensure_formula_code(self):
+        for formula in self:
+            if formula.code:
+                continue
+            code = formula._make_unique_formula_code(
+                formula.name or "formula",
+                formula.report_id.id,
+                exclude_ids=formula.ids,
+            )
+            formula.env.cr.execute(
+                "UPDATE dynamic_pdf_report_formula SET code = %s WHERE id = %s",
+                (code, formula.id),
+            )
+            formula.invalidate_recordset(["code"])
 
 
 class DynamicPdfReportLineSection(models.Model):

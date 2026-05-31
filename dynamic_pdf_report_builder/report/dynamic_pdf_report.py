@@ -1,11 +1,16 @@
+import logging
 from datetime import date, datetime
 from urllib.parse import quote
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import format_date, format_datetime, html2plaintext
+from odoo.tools.safe_eval import safe_eval
 
-from ..const import ALLOWED_FIELD_TYPES, BLOCK_POSITIONS, REPORT_TEMPLATE_XML_ID
+from ..const import ALLOWED_FIELD_TYPES, BLOCK_POSITIONS, FORMULA_FIELD_TYPES, REPORT_TEMPLATE_XML_ID
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ReportDynamicPdfReport(models.AbstractModel):
@@ -37,6 +42,7 @@ class ReportDynamicPdfReport(models.AbstractModel):
         line_section_data = self._get_line_section_data(report_config)
         active_blocks = report_config.block_ids.filtered("is_active").sorted("sequence")
         blocks_by_position = self._get_blocks_by_position(active_blocks)
+        formula_definitions = self._get_formula_definitions(report_config)
 
         return {
             "doc_ids": docids,
@@ -48,6 +54,7 @@ class ReportDynamicPdfReport(models.AbstractModel):
             "field_lines": field_lines,
             "line_section_data": line_section_data,
             "blocks_by_position": blocks_by_position,
+            "formula_definitions": formula_definitions,
             "company": self.env.company,
             "print_date": format_datetime(self.env, fields.Datetime.now()),
             "template_preset_label": self._get_template_preset_label(report_config),
@@ -58,7 +65,143 @@ class ReportDynamicPdfReport(models.AbstractModel):
             "get_blocks": self._get_blocks,
             "get_block_title": self._get_block_title,
             "get_barcode_url": self._get_barcode_url,
+            "get_main_formulas": self._get_main_formulas,
+            "get_line_formulas": self._get_line_formulas,
+            "compute_formula_value": self._compute_formula_value,
+            "format_formula_value": self._format_formula_value,
         }
+
+    @api.model
+    def _get_formula_definitions(self, report_config):
+        empty_formulas = self.env["dynamic.pdf.report.formula"]
+        formulas = report_config.with_context(active_test=False).formula_ids.filtered("active").sorted("sequence")
+        main_formulas = formulas.filtered(lambda formula: formula.scope == "main_record" and formula.show_in_report)
+        line_formulas = formulas.filtered(lambda formula: formula.scope == "line_section" and formula.show_in_line_tables)
+        concat_fields = {
+            formula.id: formula._get_concat_field_names()
+            for formula in formulas
+            if formula.formula_type == "concat"
+        }
+        line_formulas_by_section = {}
+        for formula in line_formulas:
+            if not formula.line_section_id:
+                continue
+            line_formulas_by_section.setdefault(formula.line_section_id.id, empty_formulas)
+            line_formulas_by_section[formula.line_section_id.id] |= formula
+        return {
+            "main_record": main_formulas,
+            "line_section": line_formulas_by_section,
+            "concat_fields": concat_fields,
+        }
+
+    @api.model
+    def _get_main_formulas(self, formula_definitions):
+        return formula_definitions.get("main_record", self.env["dynamic.pdf.report.formula"])
+
+    @api.model
+    def _get_line_formulas(self, formula_definitions, section):
+        line_formulas = formula_definitions.get("line_section", {})
+        return line_formulas.get(section.id, self.env["dynamic.pdf.report.formula"]).sorted("sequence")
+
+    @api.model
+    def _compute_formula_value(self, formula, record, formula_definitions=None):
+        if not formula or not formula.active or not record:
+            return ""
+        try:
+            if formula.formula_type == "concat":
+                return self._compute_concat_formula(formula, record, formula_definitions)
+            if formula.formula_type == "conditional":
+                condition_value = self._evaluate_formula(formula, record, formula.condition_expression)
+                return formula.true_value if condition_value else formula.false_value
+            return self._evaluate_formula(formula, record, formula.formula_expression)
+        except Exception as exception:
+            _logger.exception("Unable to evaluate formula '%s' (%s).", formula.name, formula.code)
+            raise UserError(
+                _("Unable to evaluate formula '%(formula)s':\n%(error)s", formula=formula.name, error=exception)
+            ) from exception
+
+    @api.model
+    def _evaluate_formula(self, formula, record, expression=None):
+        expression = (expression or "").strip()
+        if not expression:
+            return ""
+        eval_context = self._get_formula_eval_context(record[:1])
+        return self._evaluate_formula_expression(expression, eval_context)
+
+    @api.model
+    def _evaluate_formula_expression(self, expression, context_dict):
+        eval_context = dict(context_dict or {})
+        eval_context["round"] = round
+        return safe_eval(expression, eval_context, mode="eval")
+
+    @api.model
+    def _compute_concat_formula(self, formula, record, formula_definitions=None):
+        values = []
+        separator = formula.separator if formula.separator is not False else " - "
+        concat_fields = (formula_definitions or {}).get("concat_fields", {})
+        field_names = concat_fields.get(formula.id)
+        if field_names is None:
+            field_names = formula._get_concat_field_names()
+        for field_name in field_names:
+            if field_name not in record._fields:
+                continue
+            value = self._get_record_field_display_value(record[:1], field_name)
+            if value not in ("", False, None):
+                values.append(str(value))
+        return separator.join(values)
+
+    @api.model
+    def _get_formula_eval_context(self, record):
+        context = {}
+        if not record:
+            return context
+        record = record[:1]
+        for field_name, field in record._fields.items():
+            if field.type in FORMULA_FIELD_TYPES:
+                context[field_name] = self._get_record_field_eval_value(record, field_name)
+        return context
+
+    @api.model
+    def _get_record_field_eval_value(self, record, field_name):
+        field = record._fields[field_name]
+        value = record[field_name]
+        if field.type in ("integer", "float", "monetary"):
+            return value or 0
+        if field.type == "many2one":
+            return value.display_name if value else ""
+        if field.type == "selection":
+            if not value:
+                return ""
+            selection = dict(field._description_selection(self.env))
+            return selection.get(value, value)
+        if field.type == "boolean":
+            return bool(value)
+        return value or ""
+
+    @api.model
+    def _get_record_field_display_value(self, record, field_name):
+        field = record._fields[field_name]
+        value = record[field_name]
+        if field.type == "many2one":
+            return value.display_name if value else ""
+        if field.type == "selection":
+            if not value:
+                return ""
+            selection = dict(field._description_selection(self.env))
+            return selection.get(value, value)
+        if field.type == "boolean":
+            return _("Yes") if value else _("No")
+        if value is False or value is None:
+            return ""
+        return value
+
+    @api.model
+    def _format_formula_value(self, value):
+        if value is False or value is None:
+            return ""
+        if hasattr(value, "mapped") and hasattr(value, "_name"):
+            return ", ".join(value.mapped("display_name"))
+        return value
 
     @api.model
     def _get_blocks_by_position(self, blocks):

@@ -31,6 +31,17 @@ BLOCK_POSITIONS = (
     "footer_area",
 )
 
+FORMULA_FIELD_TYPES = (
+    "char",
+    "text",
+    "integer",
+    "float",
+    "monetary",
+    "many2one",
+    "selection",
+    "boolean",
+)
+
 REPORT_TEMPLATE_XML_ID = "dynamic_pdf_report_builder.dynamic_pdf_report_template"
 
 PAPERFORMAT_XML_IDS = {

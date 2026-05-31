@@ -229,6 +229,7 @@
 
                 <t t-if="not line_section_data">
                     <t t-set="doc" t-value="primary_doc"/>
+                    <t t-set="main_formulas" t-value="get_main_formulas(formula_definitions)"/>
                     <t t-set="position" t-value="'before_main_table'"/>
                     <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
 
@@ -240,6 +241,9 @@
                                         <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
                                         <span t-else="" t-out="line.field_name"/>
                                     </th>
+                                    <th t-foreach="main_formulas" t-as="formula" t-att-style="style['th']">
+                                        <span t-out="formula.output_label or formula.name"/>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -250,9 +254,12 @@
                                     <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
                                         <span t-out="format_value(row[0], line)"/>
                                     </td>
+                                    <td t-foreach="main_formulas" t-as="formula" t-att-style="style['td']">
+                                        <span t-out="format_formula_value(compute_formula_value(formula, row[0], formula_definitions))"/>
+                                    </td>
                                 </tr>
                                 <tr t-if="not report_rows">
-                                    <td t-att-colspan="len(field_lines)" t-att-style="style['td']">No records selected.</td>
+                                    <td t-att-colspan="len(field_lines) + len(main_formulas)" t-att-style="style['td']">No records selected.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -267,6 +274,7 @@
                 </t>
 
                 <t t-if="line_section_data">
+                    <t t-set="main_formulas" t-value="get_main_formulas(formula_definitions)"/>
                     <t t-if="not report_rows">
                         <t t-set="doc" t-value="primary_doc"/>
                         <t t-set="position" t-value="'before_main_table'"/>
@@ -276,7 +284,7 @@
                         <table class="dynamic-pdf-table" t-att-style="style['table']">
                             <tbody>
                                 <tr>
-                                    <td t-att-colspan="len(field_lines)" t-att-style="style['td']">No records selected.</td>
+                                    <td t-att-colspan="len(field_lines) + len(main_formulas)" t-att-style="style['td']">No records selected.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -307,12 +315,18 @@
                                             <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
                                             <span t-else="" t-out="line.field_name"/>
                                         </th>
+                                        <th t-foreach="main_formulas" t-as="formula" t-att-style="style['th']">
+                                            <span t-out="formula.output_label or formula.name"/>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
                                             <span t-out="format_value(row[0], line)"/>
+                                        </td>
+                                        <td t-foreach="main_formulas" t-as="formula" t-att-style="style['td']">
+                                            <span t-out="format_formula_value(compute_formula_value(formula, row[0], formula_definitions))"/>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -328,6 +342,7 @@
                             <t t-set="section" t-value="section_data['section']"/>
                             <t t-set="line_fields" t-value="section_data['field_lines']"/>
                             <t t-set="line_records" t-value="get_line_records(row[0], section)"/>
+                            <t t-set="line_formulas" t-value="get_line_formulas(formula_definitions, section)"/>
                             <div t-if="line_records" class="dynamic-pdf-line-section" t-att-style="style['line_section']">
                                 <h3
                                     t-if="section.show_section_title"
@@ -343,6 +358,9 @@
                                                     <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
                                                     <span t-else="" t-out="line.field_name"/>
                                                 </th>
+                                                <th t-foreach="line_formulas" t-as="formula" t-att-style="style['th']">
+                                                    <span t-out="formula.output_label or formula.name"/>
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -352,6 +370,9 @@
                                                 t-att-style="style['zebra_row'] if report_config.zebra_rows and line_row[1] else ''">
                                                 <td t-foreach="line_fields" t-as="line" t-att-style="style['td']">
                                                     <span t-out="format_value(line_row[0], line)"/>
+                                                </td>
+                                                <td t-foreach="line_formulas" t-as="formula" t-att-style="style['td']">
+                                                    <span t-out="format_formula_value(compute_formula_value(formula, line_row[0], formula_definitions))"/>
                                                 </td>
                                             </tr>
                                         </tbody>

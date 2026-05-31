@@ -121,6 +121,106 @@
                                 </form>
                             </field>
                         </page>
+                        <page string="Calculated Fields">
+                            <field name="formula_ids" mode="list,form" context="{'active_test': False}">
+                                <list string="Calculated Fields" editable="bottom" open_form_view="True">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="code" readonly="1" optional="show"/>
+                                    <field name="scope"/>
+                                    <field
+                                        name="line_section_id"
+                                        domain="[('report_id', '=', parent.id)]"
+                                        invisible="scope != 'line_section'"
+                                        required="scope == 'line_section'"/>
+                                    <field name="formula_type"/>
+                                    <field
+                                        name="formula_expression"
+                                        placeholder="amount_total * 0.15"
+                                        invisible="formula_type not in ['arithmetic', 'concat']"
+                                        required="formula_type in ['arithmetic', 'concat']"/>
+                                    <field
+                                        name="separator"
+                                        invisible="formula_type != 'concat'"/>
+                                    <field
+                                        name="condition_expression"
+                                        placeholder="amount_total &gt; 1000"
+                                        invisible="formula_type != 'conditional'"
+                                        required="formula_type == 'conditional'"/>
+                                    <field
+                                        name="true_value"
+                                        invisible="formula_type != 'conditional'"/>
+                                    <field
+                                        name="false_value"
+                                        invisible="formula_type != 'conditional'"/>
+                                    <field name="output_label"/>
+                                    <field name="active"/>
+                                </list>
+                                <form string="Calculated Field">
+                                    <sheet>
+                                        <group string="General">
+                                            <group>
+                                                <field name="sequence"/>
+                                                <field name="name"/>
+                                                <field name="code"/>
+                                                <field name="active"/>
+                                            </group>
+                                            <group>
+                                                <field name="scope"/>
+                                                <field
+                                                    name="line_section_id"
+                                                    domain="[('report_id', '=', parent.id)]"
+                                                    invisible="scope != 'line_section'"
+                                                    required="scope == 'line_section'"/>
+                                                <field name="formula_type"/>
+                                            </group>
+                                        </group>
+                                        <group
+                                            string="Arithmetic Formula"
+                                            invisible="formula_type != 'arithmetic'">
+                                            <field
+                                                name="formula_expression"
+                                                placeholder="amount_total * 0.15&#10;amount_untaxed + amount_tax&#10;product_uom_qty * price_unit"
+                                                required="formula_type == 'arithmetic'"/>
+                                        </group>
+                                        <group
+                                            string="Concat Formula"
+                                            invisible="formula_type != 'concat'">
+                                            <field
+                                                name="formula_expression"
+                                                placeholder="partner_id country_id"
+                                                required="formula_type == 'concat'"/>
+                                            <field
+                                                name="separator"
+                                                placeholder=" - "/>
+                                        </group>
+                                        <group
+                                            string="Conditional Formula"
+                                            invisible="formula_type != 'conditional'">
+                                            <field
+                                                name="condition_expression"
+                                                placeholder="amount_total &gt; 1000"
+                                                required="formula_type == 'conditional'"/>
+                                            <field
+                                                name="true_value"
+                                                placeholder="VIP"/>
+                                            <field
+                                                name="false_value"
+                                                placeholder="Normal"/>
+                                        </group>
+                                        <group string="Output">
+                                            <group>
+                                                <field name="output_label"/>
+                                            </group>
+                                            <group>
+                                                <field name="show_in_report"/>
+                                                <field name="show_in_line_tables"/>
+                                            </group>
+                                        </group>
+                                    </sheet>
+                                </form>
+                            </field>
+                        </page>
                         <page string="Visual Blocks">
                             <field name="block_ids" mode="list,form">
                                 <list string="Visual Blocks" editable="bottom" open_form_view="True">
