@@ -86,6 +86,93 @@
         </t>
     </template>
 
+    <template id="dynamic_pdf_report_record_with_line_sections">
+        <t t-set="doc" t-value="row[0]"/>
+        <div
+            class="dynamic-pdf-doc-block"
+            t-att-style="style['doc_block']">
+            <t t-set="position" t-value="'before_main_table'"/>
+            <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
+
+            <div class="dynamic-pdf-table-wrapper dynamic-report-table-wrapper" t-att-style="style['table_wrapper']">
+                <table class="dynamic-pdf-table dynamic-pdf-main-table" t-att-style="style['table']">
+                    <thead>
+                        <tr>
+                            <th t-foreach="field_lines" t-as="line" t-att-style="style['th']">
+                                <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
+                                <span t-else="" t-out="line.field_name"/>
+                            </th>
+                            <th t-foreach="main_formulas" t-as="formula" t-att-style="style['th']">
+                                <span t-out="formula.output_label or formula.name"/>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
+                                <span t-out="format_value(doc, line)"/>
+                            </td>
+                            <td t-foreach="main_formulas" t-as="formula" t-att-style="style['td']">
+                                <span t-out="format_formula_value(compute_formula_value(formula, doc, formula_definitions))"/>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <t t-set="position" t-value="'after_main_table'"/>
+            <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
+            <t t-set="position" t-value="'before_line_sections'"/>
+            <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
+
+            <t t-foreach="line_section_data" t-as="section_data">
+                <t t-set="section" t-value="section_data['section']"/>
+                <t t-set="line_fields" t-value="section_data['field_lines']"/>
+                <t t-set="line_records" t-value="get_line_records(doc, section)"/>
+                <t t-set="line_formulas" t-value="get_line_formulas(formula_definitions, section)"/>
+                <div t-if="line_records" class="dynamic-pdf-line-section" t-att-style="style['line_section']">
+                    <h3
+                        t-if="section.show_section_title"
+                        class="dynamic-pdf-line-section-title"
+                        t-att-style="style['line_section_title']">
+                        <span t-out="section.name"/>
+                    </h3>
+                    <div class="dynamic-pdf-line-table-wrapper" t-att-style="style['table_wrapper']">
+                        <table class="dynamic-pdf-table dynamic-pdf-line-table" t-att-style="style['table']">
+                            <thead>
+                                <tr>
+                                    <th t-foreach="line_fields" t-as="line" t-att-style="style['th']">
+                                        <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
+                                        <span t-else="" t-out="line.field_name"/>
+                                    </th>
+                                    <th t-foreach="line_formulas" t-as="formula" t-att-style="style['th']">
+                                        <span t-out="formula.output_label or formula.name"/>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    t-foreach="get_record_rows(line_records)"
+                                    t-as="line_row"
+                                    t-att-style="style['zebra_row'] if report_config.zebra_rows and line_row[1] else ''">
+                                    <td t-foreach="line_fields" t-as="line" t-att-style="style['td']">
+                                        <span t-out="format_value(line_row[0], line)"/>
+                                    </td>
+                                    <td t-foreach="line_formulas" t-as="formula" t-att-style="style['td']">
+                                        <span t-out="format_formula_value(compute_formula_value(formula, line_row[0], formula_definitions))"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </t>
+
+            <t t-set="position" t-value="'after_line_sections'"/>
+            <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
+        </div>
+    </template>
+
     <template id="dynamic_pdf_report_template">
         <t t-call="web.html_container">
             <style type="text/css">
@@ -188,6 +275,12 @@
                 .dynamic-report-watermark {
                     clear: both;
                 }
+                .dynamic-report-group-header,
+                .dynamic-report-group-footer,
+                .dynamic-report-grand-total {
+                    clear: both;
+                    page-break-inside: avoid;
+                }
                 .dynamic-report-qr,
                 .dynamic-report-barcode {
                     display: inline-block;
@@ -247,17 +340,65 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr
-                                    t-foreach="report_rows"
-                                    t-as="row"
-                                    t-att-style="style['zebra_row'] if report_config.zebra_rows and row[1] else ''">
-                                    <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
-                                        <span t-out="format_value(row[0], line)"/>
-                                    </td>
-                                    <td t-foreach="main_formulas" t-as="formula" t-att-style="style['td']">
-                                        <span t-out="format_formula_value(compute_formula_value(formula, row[0], formula_definitions))"/>
-                                    </td>
-                                </tr>
+                                <t t-if="not group_definitions">
+                                    <tr
+                                        t-foreach="report_rows"
+                                        t-as="row"
+                                        t-att-style="style['zebra_row'] if report_config.zebra_rows and row[1] else ''">
+                                        <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
+                                            <span t-out="format_value(row[0], line)"/>
+                                        </td>
+                                        <td t-foreach="main_formulas" t-as="formula" t-att-style="style['td']">
+                                            <span t-out="format_formula_value(compute_formula_value(formula, row[0], formula_definitions))"/>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="aggregate_definitions and report_rows">
+                                        <td
+                                            t-att-colspan="len(field_lines) + len(main_formulas)"
+                                            class="dynamic-report-grand-total"
+                                            t-att-style="style['grand_total_cell']">
+                                            <span t-out="get_totals_line(grand_totals, aggregate_definitions, 'Grand Total')"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <t t-if="group_definitions">
+                                    <t t-foreach="grouped_rows" t-as="event">
+                                        <tr t-if="event['type'] == 'group_header'">
+                                            <td
+                                                t-att-colspan="len(field_lines) + len(main_formulas)"
+                                                class="dynamic-report-group-header"
+                                                t-att-style="style['group_header_cell'] + get_group_indent_style(event['level'], report_config.direction)">
+                                                <span t-out="event['label']"/>: <span t-out="event['value']"/>
+                                            </td>
+                                        </tr>
+                                        <tr
+                                            t-if="event['type'] == 'record'"
+                                            t-att-style="style['zebra_row'] if report_config.zebra_rows and event['row'][1] else ''">
+                                            <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
+                                                <span t-out="format_value(event['row'][0], line)"/>
+                                            </td>
+                                            <td t-foreach="main_formulas" t-as="formula" t-att-style="style['td']">
+                                                <span t-out="format_formula_value(compute_formula_value(formula, event['row'][0], formula_definitions))"/>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="event['type'] == 'group_footer' and aggregate_definitions">
+                                            <td
+                                                t-att-colspan="len(field_lines) + len(main_formulas)"
+                                                class="dynamic-report-group-footer"
+                                                t-att-style="style['group_footer_cell'] + get_group_indent_style(event['level'], report_config.direction)">
+                                                <span t-out="get_totals_line(event['totals'], aggregate_definitions, 'Subtotal')"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                    <tr t-if="aggregate_definitions and report_rows">
+                                        <td
+                                            t-att-colspan="len(field_lines) + len(main_formulas)"
+                                            class="dynamic-report-grand-total"
+                                            t-att-style="style['grand_total_cell']">
+                                            <span t-out="get_totals_line(grand_totals, aggregate_definitions, 'Grand Total')"/>
+                                        </td>
+                                    </tr>
+                                </t>
                                 <tr t-if="not report_rows">
                                     <td t-att-colspan="len(field_lines) + len(main_formulas)" t-att-style="style['td']">No records selected.</td>
                                 </tr>
@@ -298,92 +439,43 @@
                         <t t-set="position" t-value="'after_line_sections'"/>
                         <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
                     </t>
-                    <div
-                        t-foreach="report_rows"
-                        t-as="row"
-                        class="dynamic-pdf-doc-block"
-                        t-att-style="style['doc_block']">
-                        <t t-set="doc" t-value="row[0]"/>
-                        <t t-set="position" t-value="'before_main_table'"/>
-                        <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
-
-                        <div class="dynamic-pdf-table-wrapper dynamic-report-table-wrapper" t-att-style="style['table_wrapper']">
-                            <table class="dynamic-pdf-table dynamic-pdf-main-table" t-att-style="style['table']">
-                                <thead>
-                                    <tr>
-                                        <th t-foreach="field_lines" t-as="line" t-att-style="style['th']">
-                                            <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
-                                            <span t-else="" t-out="line.field_name"/>
-                                        </th>
-                                        <th t-foreach="main_formulas" t-as="formula" t-att-style="style['th']">
-                                            <span t-out="formula.output_label or formula.name"/>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td t-foreach="field_lines" t-as="line" t-att-style="style['td']">
-                                            <span t-out="format_value(row[0], line)"/>
-                                        </td>
-                                        <td t-foreach="main_formulas" t-as="formula" t-att-style="style['td']">
-                                            <span t-out="format_formula_value(compute_formula_value(formula, row[0], formula_definitions))"/>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <t t-if="not group_definitions">
+                        <t t-foreach="report_rows" t-as="row">
+                            <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_record_with_line_sections"/>
+                        </t>
+                        <div
+                            t-if="aggregate_definitions and report_rows"
+                            class="dynamic-report-grand-total"
+                            t-att-style="style['grand_total']">
+                            <span t-out="get_totals_line(grand_totals, aggregate_definitions, 'Grand Total')"/>
                         </div>
-
-                        <t t-set="position" t-value="'after_main_table'"/>
-                        <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
-                        <t t-set="position" t-value="'before_line_sections'"/>
-                        <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
-
-                        <t t-foreach="line_section_data" t-as="section_data">
-                            <t t-set="section" t-value="section_data['section']"/>
-                            <t t-set="line_fields" t-value="section_data['field_lines']"/>
-                            <t t-set="line_records" t-value="get_line_records(row[0], section)"/>
-                            <t t-set="line_formulas" t-value="get_line_formulas(formula_definitions, section)"/>
-                            <div t-if="line_records" class="dynamic-pdf-line-section" t-att-style="style['line_section']">
-                                <h3
-                                    t-if="section.show_section_title"
-                                    class="dynamic-pdf-line-section-title"
-                                    t-att-style="style['line_section_title']">
-                                    <span t-out="section.name"/>
-                                </h3>
-                                <div class="dynamic-pdf-line-table-wrapper" t-att-style="style['table_wrapper']">
-                                    <table class="dynamic-pdf-table dynamic-pdf-line-table" t-att-style="style['table']">
-                                        <thead>
-                                            <tr>
-                                                <th t-foreach="line_fields" t-as="line" t-att-style="style['th']">
-                                                    <span t-if="line.show_label" t-out="line.field_description or line.field_name"/>
-                                                    <span t-else="" t-out="line.field_name"/>
-                                                </th>
-                                                <th t-foreach="line_formulas" t-as="formula" t-att-style="style['th']">
-                                                    <span t-out="formula.output_label or formula.name"/>
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr
-                                                t-foreach="get_record_rows(line_records)"
-                                                t-as="line_row"
-                                                t-att-style="style['zebra_row'] if report_config.zebra_rows and line_row[1] else ''">
-                                                <td t-foreach="line_fields" t-as="line" t-att-style="style['td']">
-                                                    <span t-out="format_value(line_row[0], line)"/>
-                                                </td>
-                                                <td t-foreach="line_formulas" t-as="formula" t-att-style="style['td']">
-                                                    <span t-out="format_formula_value(compute_formula_value(formula, line_row[0], formula_definitions))"/>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                    </t>
+                    <t t-if="group_definitions">
+                        <t t-foreach="grouped_rows" t-as="event">
+                            <div
+                                t-if="event['type'] == 'group_header'"
+                                class="dynamic-report-group-header"
+                                t-att-style="style['group_header'] + get_group_indent_style(event['level'], report_config.direction)">
+                                <span t-out="event['label']"/>: <span t-out="event['value']"/>
+                            </div>
+                            <t t-if="event['type'] == 'record'">
+                                <t t-set="row" t-value="event['row']"/>
+                                <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_record_with_line_sections"/>
+                            </t>
+                            <div
+                                t-if="event['type'] == 'group_footer' and aggregate_definitions"
+                                class="dynamic-report-group-footer"
+                                t-att-style="style['group_footer'] + get_group_indent_style(event['level'], report_config.direction)">
+                                <span t-out="get_totals_line(event['totals'], aggregate_definitions, 'Subtotal')"/>
                             </div>
                         </t>
-
-                        <t t-set="position" t-value="'after_line_sections'"/>
-                        <t t-call="dynamic_pdf_report_builder.dynamic_pdf_report_blocks"/>
-                    </div>
+                        <div
+                            t-if="aggregate_definitions and report_rows"
+                            class="dynamic-report-grand-total"
+                            t-att-style="style['grand_total']">
+                            <span t-out="get_totals_line(grand_totals, aggregate_definitions, 'Grand Total')"/>
+                        </div>
+                    </t>
                 </t>
             </div>
 

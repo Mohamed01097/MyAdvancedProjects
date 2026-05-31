@@ -221,6 +221,72 @@
                                 </form>
                             </field>
                         </page>
+                        <page string="Grouping &amp; Totals">
+                            <group string="Grouping">
+                                <field name="group_ids" mode="list,form">
+                                    <list string="Grouping Fields" editable="bottom" open_form_view="True">
+                                        <field name="sequence" widget="handle"/>
+                                        <field
+                                            name="field_id"
+                                            domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'selection', 'many2one', 'date', 'datetime', 'boolean'])]"
+                                        />
+                                        <field name="field_description" readonly="1"/>
+                                        <field name="field_type" readonly="1"/>
+                                        <field name="field_name" readonly="1" optional="hide"/>
+                                    </list>
+                                    <form string="Grouping Field">
+                                        <sheet>
+                                            <group>
+                                                <group>
+                                                    <field name="sequence"/>
+                                                    <field
+                                                        name="field_id"
+                                                        domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'selection', 'many2one', 'date', 'datetime', 'boolean'])]"
+                                                    />
+                                                </group>
+                                                <group>
+                                                    <field name="field_description" readonly="1"/>
+                                                    <field name="field_name" readonly="1"/>
+                                                    <field name="field_type" readonly="1"/>
+                                                </group>
+                                            </group>
+                                        </sheet>
+                                    </form>
+                                </field>
+                            </group>
+                            <group string="Totals">
+                                <field name="aggregate_ids" mode="list,form">
+                                    <list string="Aggregates" editable="bottom" open_form_view="True">
+                                        <field
+                                            name="field_id"
+                                            domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one'])]"
+                                        />
+                                        <field name="field_description" readonly="1"/>
+                                        <field name="field_type" readonly="1"/>
+                                        <field name="field_name" readonly="1" optional="hide"/>
+                                        <field name="aggregate_type"/>
+                                    </list>
+                                    <form string="Aggregate">
+                                        <sheet>
+                                            <group>
+                                                <group>
+                                                    <field
+                                                        name="field_id"
+                                                        domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one'])]"
+                                                    />
+                                                    <field name="aggregate_type"/>
+                                                </group>
+                                                <group>
+                                                    <field name="field_description" readonly="1"/>
+                                                    <field name="field_name" readonly="1"/>
+                                                    <field name="field_type" readonly="1"/>
+                                                </group>
+                                            </group>
+                                        </sheet>
+                                    </form>
+                                </field>
+                            </group>
+                        </page>
                         <page string="Visual Blocks">
                             <field name="block_ids" mode="list,form">
                                 <list string="Visual Blocks" editable="bottom" open_form_view="True">

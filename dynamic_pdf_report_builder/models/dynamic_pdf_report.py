@@ -6,9 +6,11 @@ from odoo.exceptions import UserError, ValidationError
 from odoo.tools import sql
 
 from ..const import (
+    AGGREGATE_NUMERIC_FIELD_TYPES,
     ALLOWED_FIELD_TYPES,
     BLOCK_SOURCE_FIELD_TYPES,
     FORMULA_FIELD_TYPES,
+    GROUP_FIELD_TYPES,
     PAPERFORMAT_VALUES,
     PAPERFORMAT_XML_IDS,
     REPORT_TEMPLATE_XML_ID,
@@ -127,6 +129,8 @@ class DynamicPdfReport(models.Model):
         "report_id",
         context={"active_test": False},
     )
+    group_ids = fields.One2many("dynamic.pdf.report.group", "report_id")
+    aggregate_ids = fields.One2many("dynamic.pdf.report.aggregate", "report_id")
     report_action_id = fields.Many2one(
         "ir.actions.report",
         readonly=True,
@@ -192,6 +196,10 @@ class DynamicPdfReport(models.Model):
             self.field_line_ids = False
         if self.line_section_ids:
             self.line_section_ids = False
+        if self.group_ids:
+            self.group_ids = False
+        if self.aggregate_ids:
+            self.aggregate_ids = False
         for block in self.block_ids:
             block.source_field_id = False
         for formula in self.formula_ids:
@@ -205,7 +213,15 @@ class DynamicPdfReport(models.Model):
             if report.model_id.abstract:
                 raise ValidationError(_("You cannot create dynamic PDF reports for abstract models."))
 
-    @api.constrains("model_id", "field_line_ids", "line_section_ids", "block_ids", "formula_ids")
+    @api.constrains(
+        "model_id",
+        "field_line_ids",
+        "line_section_ids",
+        "block_ids",
+        "formula_ids",
+        "group_ids",
+        "aggregate_ids",
+    )
     def _check_field_lines_match_model(self):
         for report in self:
             wrong_lines = report.field_line_ids.filtered(
@@ -228,6 +244,16 @@ class DynamicPdfReport(models.Model):
             )
             if wrong_formulas:
                 raise ValidationError(_("All line-section formulas must use sections from the same report."))
+            wrong_groups = report.group_ids.filtered(
+                lambda group: group.field_id and group.field_id.model_id != report.model_id
+            )
+            if wrong_groups:
+                raise ValidationError(_("All grouping fields must belong to the selected model."))
+            wrong_aggregates = report.aggregate_ids.filtered(
+                lambda aggregate: aggregate.field_id and aggregate.field_id.model_id != report.model_id
+            )
+            if wrong_aggregates:
+                raise ValidationError(_("All aggregate fields must belong to the selected model."))
 
     @api.constrains(*COLOR_FIELDS)
     def _check_hex_colors(self):
@@ -377,6 +403,22 @@ class DynamicPdfReport(models.Model):
             })
             for block in self.block_ids.sorted("sequence")
         ]
+        vals["group_ids"] = [
+            (0, 0, {
+                "sequence": group.sequence,
+                "field_id": group.field_id.id,
+            })
+            for group in self.group_ids.sorted("sequence")
+            if group.field_id
+        ]
+        vals["aggregate_ids"] = [
+            (0, 0, {
+                "field_id": aggregate.field_id.id,
+                "aggregate_type": aggregate.aggregate_type,
+            })
+            for aggregate in self.aggregate_ids
+            if aggregate.field_id
+        ]
         return vals
 
     def _copy_duplicate_formulas(self, new_report):
@@ -448,6 +490,7 @@ class DynamicPdfReport(models.Model):
         self._validate_line_sections()
         self._validate_blocks()
         self._validate_formulas()
+        self._validate_groups_and_aggregates()
 
     def _validate_blocks(self):
         self.ensure_one()
@@ -458,6 +501,22 @@ class DynamicPdfReport(models.Model):
         self.ensure_one()
         for formula in self.with_context(active_test=False).formula_ids:
             formula._validate_formula_configuration()
+
+    def _validate_groups_and_aggregates(self):
+        self.ensure_one()
+        groups = self.group_ids.filtered("field_id")
+        group_field_ids = groups.mapped("field_id").ids
+        if len(group_field_ids) != len(set(group_field_ids)):
+            raise UserError(_("A field can only be used once for grouping in the same report."))
+        for group in groups:
+            group._validate_group_configuration()
+
+        aggregate_keys = []
+        for aggregate in self.aggregate_ids.filtered("field_id"):
+            aggregate._validate_aggregate_configuration()
+            aggregate_keys.append((aggregate.field_id.id, aggregate.aggregate_type))
+        if len(aggregate_keys) != len(set(aggregate_keys)):
+            raise UserError(_("The same aggregate can only be configured once per report."))
 
     def _validate_line_sections(self):
         self.ensure_one()
@@ -1051,6 +1110,108 @@ class DynamicPdfReportFormula(models.Model):
                 (code, formula.id),
             )
             formula.invalidate_recordset(["code"])
+
+
+class DynamicPdfReportGroup(models.Model):
+    _name = "dynamic.pdf.report.group"
+    _description = "Dynamic PDF Report Group"
+    _order = "sequence, id"
+
+    _unique_report_group_field = models.Constraint(
+        "unique(report_id, field_id)",
+        "A field can only be used once for grouping in the same report.",
+    )
+
+    report_id = fields.Many2one(
+        "dynamic.pdf.report",
+        required=True,
+        ondelete="cascade",
+    )
+    sequence = fields.Integer(default=10)
+    field_id = fields.Many2one(
+        "ir.model.fields",
+        required=True,
+        ondelete="cascade",
+        domain=[("ttype", "in", GROUP_FIELD_TYPES)],
+    )
+    field_name = fields.Char(related="field_id.name", store=True, readonly=True)
+    field_description = fields.Char(related="field_id.field_description", store=True, readonly=True)
+    field_type = fields.Selection(related="field_id.ttype", store=True, readonly=True)
+
+    @api.constrains("field_id", "report_id")
+    def _check_group_configuration(self):
+        for group in self:
+            group._validate_group_configuration(use_validation_error=True)
+
+    def _validate_group_configuration(self, use_validation_error=False):
+        self.ensure_one()
+        error = ValidationError if use_validation_error else UserError
+        if not self.field_id:
+            raise error(_("Select a field to group by."))
+        if self.report_id and self.field_id.model_id != self.report_id.model_id:
+            raise error(_("Grouping field '%s' must belong to the selected report model.", self.field_description))
+        if self.field_type not in GROUP_FIELD_TYPES:
+            allowed_types = ", ".join(GROUP_FIELD_TYPES)
+            raise error(_("Grouping supports only these field types: %s", allowed_types))
+
+
+class DynamicPdfReportAggregate(models.Model):
+    _name = "dynamic.pdf.report.aggregate"
+    _description = "Dynamic PDF Report Aggregate"
+    _order = "id"
+
+    _unique_report_aggregate = models.Constraint(
+        "unique(report_id, field_id, aggregate_type)",
+        "The same aggregate can only be configured once per report.",
+    )
+
+    report_id = fields.Many2one(
+        "dynamic.pdf.report",
+        required=True,
+        ondelete="cascade",
+    )
+    field_id = fields.Many2one(
+        "ir.model.fields",
+        required=True,
+        ondelete="cascade",
+        domain=[("ttype", "in", ALLOWED_FIELD_TYPES)],
+    )
+    field_name = fields.Char(related="field_id.name", store=True, readonly=True)
+    field_description = fields.Char(related="field_id.field_description", store=True, readonly=True)
+    field_type = fields.Selection(related="field_id.ttype", store=True, readonly=True)
+    aggregate_type = fields.Selection(
+        [
+            ("sum", "Sum"),
+            ("count", "Count"),
+            ("avg", "Average"),
+            ("min", "Minimum"),
+            ("max", "Maximum"),
+        ],
+        default="sum",
+        required=True,
+    )
+
+    @api.constrains("field_id", "report_id", "aggregate_type")
+    def _check_aggregate_configuration(self):
+        for aggregate in self:
+            aggregate._validate_aggregate_configuration(use_validation_error=True)
+
+    def _validate_aggregate_configuration(self, use_validation_error=False):
+        self.ensure_one()
+        error = ValidationError if use_validation_error else UserError
+        if not self.field_id:
+            raise error(_("Select a field to aggregate."))
+        if self.report_id and self.field_id.model_id != self.report_id.model_id:
+            raise error(_("Aggregate field '%s' must belong to the selected report model.", self.field_description))
+        if self.field_type not in ALLOWED_FIELD_TYPES:
+            allowed_types = ", ".join(ALLOWED_FIELD_TYPES)
+            raise error(_("Aggregates support only these field types: %s", allowed_types))
+        if self.aggregate_type in ("sum", "avg", "min", "max") and self.field_type not in AGGREGATE_NUMERIC_FIELD_TYPES:
+            numeric_types = ", ".join(AGGREGATE_NUMERIC_FIELD_TYPES)
+            raise error(
+                _("Aggregate '%(aggregate)s' on '%(field)s' requires a numeric field. Supported types: %(types)s",
+                  aggregate=self.aggregate_type, field=self.field_description, types=numeric_types)
+            )
 
 
 class DynamicPdfReportLineSection(models.Model):

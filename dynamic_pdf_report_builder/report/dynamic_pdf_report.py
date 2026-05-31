@@ -1,4 +1,5 @@
 import logging
+from collections import OrderedDict
 from datetime import date, datetime
 from urllib.parse import quote
 
@@ -7,7 +8,14 @@ from odoo.exceptions import UserError
 from odoo.tools import format_date, format_datetime, html2plaintext
 from odoo.tools.safe_eval import safe_eval
 
-from ..const import ALLOWED_FIELD_TYPES, BLOCK_POSITIONS, FORMULA_FIELD_TYPES, REPORT_TEMPLATE_XML_ID
+from ..const import (
+    AGGREGATE_NUMERIC_FIELD_TYPES,
+    ALLOWED_FIELD_TYPES,
+    BLOCK_POSITIONS,
+    FORMULA_FIELD_TYPES,
+    GROUP_FIELD_TYPES,
+    REPORT_TEMPLATE_XML_ID,
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -43,6 +51,10 @@ class ReportDynamicPdfReport(models.AbstractModel):
         active_blocks = report_config.block_ids.filtered("is_active").sorted("sequence")
         blocks_by_position = self._get_blocks_by_position(active_blocks)
         formula_definitions = self._get_formula_definitions(report_config)
+        group_definitions = self._get_group_definitions(report_config)
+        aggregate_definitions = self._get_aggregate_definitions(report_config)
+        grouped_rows = self._get_grouped_rows(docs, group_definitions, aggregate_definitions)
+        grand_totals = self._compute_aggregate_values(docs, aggregate_definitions, prefer_read_group=True)
 
         return {
             "doc_ids": docids,
@@ -55,6 +67,10 @@ class ReportDynamicPdfReport(models.AbstractModel):
             "line_section_data": line_section_data,
             "blocks_by_position": blocks_by_position,
             "formula_definitions": formula_definitions,
+            "group_definitions": group_definitions,
+            "aggregate_definitions": aggregate_definitions,
+            "grouped_rows": grouped_rows,
+            "grand_totals": grand_totals,
             "company": self.env.company,
             "print_date": format_datetime(self.env, fields.Datetime.now()),
             "template_preset_label": self._get_template_preset_label(report_config),
@@ -69,6 +85,8 @@ class ReportDynamicPdfReport(models.AbstractModel):
             "get_line_formulas": self._get_line_formulas,
             "compute_formula_value": self._compute_formula_value,
             "format_formula_value": self._format_formula_value,
+            "get_totals_line": self._format_totals_line,
+            "get_group_indent_style": self._get_group_indent_style,
         }
 
     @api.model
@@ -202,6 +220,246 @@ class ReportDynamicPdfReport(models.AbstractModel):
         if hasattr(value, "mapped") and hasattr(value, "_name"):
             return ", ".join(value.mapped("display_name"))
         return value
+
+    @api.model
+    def _get_group_definitions(self, report_config):
+        return report_config.group_ids.filtered(
+            lambda group: (
+                group.field_id
+                and group.field_id.model_id == report_config.model_id
+                and group.field_id.ttype in GROUP_FIELD_TYPES
+            )
+        ).sorted("sequence")
+
+    @api.model
+    def _get_aggregate_definitions(self, report_config):
+        return report_config.aggregate_ids.filtered(
+            lambda aggregate: (
+                aggregate.field_id
+                and aggregate.field_id.model_id == report_config.model_id
+                and (
+                    aggregate.aggregate_type == "count"
+                    or aggregate.field_id.ttype in AGGREGATE_NUMERIC_FIELD_TYPES
+                )
+            )
+        )
+
+    @api.model
+    def _get_grouped_rows(self, records, group_definitions, aggregate_definitions):
+        if not records or not group_definitions:
+            return []
+        self._prefetch_grouping_data(records, group_definitions, aggregate_definitions)
+        return self._build_grouped_rows(records, group_definitions, aggregate_definitions, level=0)
+
+    @api.model
+    def _prefetch_grouping_data(self, records, group_definitions, aggregate_definitions):
+        field_names = set(group_definitions.mapped("field_name") + aggregate_definitions.mapped("field_name"))
+        field_names.discard(False)
+        if not records or not field_names:
+            return
+        try:
+            records.read(list(field_names))
+        except Exception:
+            _logger.debug("Unable to prefetch grouping fields for dynamic PDF report.", exc_info=True)
+
+    @api.model
+    def _build_grouped_rows(self, records, group_definitions, aggregate_definitions, level=0):
+        if level >= len(group_definitions):
+            return [{"type": "record", "row": row} for row in self._get_record_rows(records)]
+
+        group = group_definitions[level]
+        grouped_ids = OrderedDict()
+        group_values = {}
+        for record in records:
+            key = self._get_group_key(record, group)
+            if key not in grouped_ids:
+                grouped_ids[key] = []
+                group_values[key] = self._get_group_display_value(record, group)
+            grouped_ids[key].append(record.id)
+
+        rows = []
+        for key, record_ids in grouped_ids.items():
+            group_records = records.browse(record_ids)
+            rows.append({
+                "type": "group_header",
+                "level": level,
+                "label": group.field_description or group.field_name,
+                "value": group_values[key],
+                "count": len(record_ids),
+            })
+            rows.extend(self._build_grouped_rows(group_records, group_definitions, aggregate_definitions, level + 1))
+            if aggregate_definitions:
+                rows.append({
+                    "type": "group_footer",
+                    "level": level,
+                    "totals": self._compute_aggregate_values(group_records, aggregate_definitions),
+                })
+        return rows
+
+    @api.model
+    def _get_group_key(self, record, group):
+        field_name = group.field_name
+        if not field_name or field_name not in record._fields:
+            return False
+        value = record[field_name]
+        if group.field_type == "many2one":
+            return value.id if value else False
+        if group.field_type == "boolean":
+            return bool(value)
+        return value or False
+
+    @api.model
+    def _get_group_display_value(self, record, group):
+        field_name = group.field_name
+        if not field_name or field_name not in record._fields:
+            return _("Undefined")
+
+        value = record[field_name]
+        field_type = group.field_type
+        if field_type == "boolean":
+            return _("Yes") if value else _("No")
+        if value is False or value is None or value == "":
+            return _("Undefined")
+        if field_type == "many2one":
+            return value.display_name
+        if field_type == "selection":
+            selection = dict(record._fields[field_name]._description_selection(self.env))
+            return selection.get(value, value)
+        if field_type == "date":
+            return format_date(self.env, value)
+        if field_type == "datetime":
+            return format_datetime(self.env, value)
+        return value
+
+    @api.model
+    def _compute_aggregate_values(self, records, aggregate_definitions, prefer_read_group=False):
+        if prefer_read_group:
+            read_group_totals = self._compute_aggregate_values_read_group(records, aggregate_definitions)
+            if read_group_totals is not None:
+                return read_group_totals
+
+        totals = {}
+        for aggregate in aggregate_definitions:
+            field_name = aggregate.field_name
+            if aggregate.aggregate_type == "count":
+                totals[aggregate.id] = len(records)
+                continue
+            if not field_name or field_name not in records._fields:
+                totals[aggregate.id] = ""
+                continue
+
+            values = []
+            for record in records:
+                value = record[field_name]
+                if value is False or value is None:
+                    continue
+                values.append(value)
+
+            if aggregate.aggregate_type == "sum":
+                totals[aggregate.id] = sum(values) if values else 0
+            elif aggregate.aggregate_type == "avg":
+                totals[aggregate.id] = sum(values) / len(values) if values else 0
+            elif aggregate.aggregate_type == "min":
+                totals[aggregate.id] = min(values) if values else ""
+            elif aggregate.aggregate_type == "max":
+                totals[aggregate.id] = max(values) if values else ""
+            else:
+                totals[aggregate.id] = ""
+        return totals
+
+    @api.model
+    def _compute_aggregate_values_read_group(self, records, aggregate_definitions):
+        if not records or not aggregate_definitions:
+            return {}
+
+        field_specs = []
+        alias_by_aggregate_id = {}
+        for aggregate in aggregate_definitions:
+            if aggregate.aggregate_type == "count":
+                continue
+            field_name = aggregate.field_name
+            field = records._fields.get(field_name)
+            if not field or not field.store:
+                return None
+            alias = "aggregate_%s" % aggregate.id
+            field_specs.append("%s:%s(%s)" % (alias, aggregate.aggregate_type, field_name))
+            alias_by_aggregate_id[aggregate.id] = alias
+
+        if not alias_by_aggregate_id:
+            return {aggregate.id: len(records) for aggregate in aggregate_definitions}
+
+        try:
+            rows = records.env[records._name].read_group(
+                [("id", "in", records.ids)],
+                field_specs,
+                [],
+            )
+        except Exception:
+            _logger.debug("Unable to compute dynamic PDF grand totals with read_group.", exc_info=True)
+            return None
+
+        values = rows[0] if rows else {}
+        if any(alias not in values for alias in alias_by_aggregate_id.values()):
+            return None
+        totals = {}
+        for aggregate in aggregate_definitions:
+            if aggregate.aggregate_type == "count":
+                totals[aggregate.id] = len(records)
+                continue
+            fallback = "" if aggregate.aggregate_type in ("min", "max") else 0
+            totals[aggregate.id] = values.get(alias_by_aggregate_id.get(aggregate.id), fallback)
+        return totals
+
+    @api.model
+    def _format_totals_line(self, totals, aggregate_definitions, prefix):
+        if not totals or not aggregate_definitions:
+            return ""
+        if prefix == "Grand Total":
+            prefix_label = _("Grand Total")
+        elif prefix == "Subtotal":
+            prefix_label = _("Subtotal")
+        else:
+            prefix_label = prefix
+
+        parts = []
+        for aggregate in aggregate_definitions:
+            value = totals.get(aggregate.id)
+            if value == "" or value is None:
+                continue
+            parts.append("%s %s: %s" % (
+                prefix_label,
+                self._get_aggregate_label(aggregate),
+                self._format_aggregate_value(value),
+            ))
+        return " | ".join(parts)
+
+    @api.model
+    def _get_aggregate_label(self, aggregate):
+        field_label = aggregate.field_description or aggregate.field_name or ""
+        if aggregate.aggregate_type == "count":
+            return _("Count %s", field_label)
+        if aggregate.aggregate_type == "avg":
+            return _("Average %s", field_label)
+        if aggregate.aggregate_type == "min":
+            return _("Minimum %s", field_label)
+        if aggregate.aggregate_type == "max":
+            return _("Maximum %s", field_label)
+        return field_label
+
+    @api.model
+    def _format_aggregate_value(self, value):
+        if value is False or value is None:
+            return ""
+        if isinstance(value, float):
+            return ("%.2f" % value).rstrip("0").rstrip(".")
+        return value
+
+    @api.model
+    def _get_group_indent_style(self, level, direction):
+        spacing = max(level or 0, 0) * 14
+        if direction == "rtl":
+            return " padding-right: %dpx;" % spacing
+        return " padding-left: %dpx;" % spacing
 
     @api.model
     def _get_blocks_by_position(self, blocks):
@@ -440,6 +698,57 @@ class ReportDynamicPdfReport(models.AbstractModel):
             ) % {
                 "primary_color": report_config.primary_color,
                 "section_font_size": font_size + 2,
+                "text_align": text_align,
+            },
+            "group_header": (
+                "clear: both; background-color: %(secondary_color)s; color: %(text_color)s; "
+                "border: 1px solid %(border_color)s; padding: 7px 8px; margin: 10px 0 6px 0; "
+                "font-weight: bold; text-align: %(text_align)s; page-break-inside: avoid;"
+            ) % {
+                "secondary_color": report_config.secondary_color,
+                "text_color": report_config.text_color,
+                "border_color": report_config.border_color,
+                "text_align": text_align,
+            },
+            "group_header_cell": (
+                "background-color: %(secondary_color)s; color: %(text_color)s; "
+                "%(border)s padding: 7px 8px; font-weight: bold; text-align: %(text_align)s;"
+            ) % {
+                "secondary_color": report_config.secondary_color,
+                "text_color": report_config.text_color,
+                "border": cell_border,
+                "text_align": text_align,
+            },
+            "group_footer": (
+                "clear: both; color: %(text_color)s; border-top: 1px solid %(border_color)s; "
+                "padding: 6px 8px; margin: 4px 0 10px 0; font-weight: bold; "
+                "text-align: %(text_align)s; page-break-inside: avoid;"
+            ) % {
+                "text_color": report_config.text_color,
+                "border_color": report_config.border_color,
+                "text_align": text_align,
+            },
+            "group_footer_cell": (
+                "color: %(text_color)s; %(border)s padding: 6px 8px; "
+                "font-weight: bold; text-align: %(text_align)s;"
+            ) % {
+                "text_color": report_config.text_color,
+                "border": cell_border,
+                "text_align": text_align,
+            },
+            "grand_total": (
+                "clear: both; color: %(primary_color)s; border-top: 2px solid %(primary_color)s; "
+                "padding: 8px; margin: 10px 0 0 0; font-weight: bold; "
+                "text-align: %(text_align)s; page-break-inside: avoid;"
+            ) % {
+                "primary_color": report_config.primary_color,
+                "text_align": text_align,
+            },
+            "grand_total_cell": (
+                "color: %(primary_color)s; border-top: 2px solid %(primary_color)s; "
+                "padding: 8px; font-weight: bold; text-align: %(text_align)s;"
+            ) % {
+                "primary_color": report_config.primary_color,
                 "text_align": text_align,
             },
             "block": (

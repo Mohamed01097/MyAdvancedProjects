@@ -3,5 +3,7 @@ access_dynamic_pdf_report_system,dynamic.pdf.report system,model_dynamic_pdf_rep
 access_dynamic_pdf_report_field_system,dynamic.pdf.report.field system,model_dynamic_pdf_report_field,base.group_system,1,1,1,1
 access_dynamic_pdf_report_block_system,dynamic.pdf.report.block system,model_dynamic_pdf_report_block,base.group_system,1,1,1,1
 access_dynamic_pdf_report_formula_system,dynamic.pdf.report.formula system,model_dynamic_pdf_report_formula,base.group_system,1,1,1,1
+access_dynamic_pdf_report_group_system,dynamic.pdf.report.group system,model_dynamic_pdf_report_group,base.group_system,1,1,1,1
+access_dynamic_pdf_report_aggregate_system,dynamic.pdf.report.aggregate system,model_dynamic_pdf_report_aggregate,base.group_system,1,1,1,1
 access_dynamic_pdf_report_line_section_system,dynamic.pdf.report.line.section system,model_dynamic_pdf_report_line_section,base.group_system,1,1,1,1
 access_dynamic_pdf_report_line_field_system,dynamic.pdf.report.line.field system,model_dynamic_pdf_report_line_field,base.group_system,1,1,1,1

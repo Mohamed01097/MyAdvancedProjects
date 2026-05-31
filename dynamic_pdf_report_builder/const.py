@@ -42,6 +42,21 @@ FORMULA_FIELD_TYPES = (
     "boolean",
 )
 
+GROUP_FIELD_TYPES = (
+    "char",
+    "selection",
+    "many2one",
+    "date",
+    "datetime",
+    "boolean",
+)
+
+AGGREGATE_NUMERIC_FIELD_TYPES = (
+    "integer",
+    "float",
+    "monetary",
+)
+
 REPORT_TEMPLATE_XML_ID = "dynamic_pdf_report_builder.dynamic_pdf_report_template"
 
 PAPERFORMAT_XML_IDS = {
