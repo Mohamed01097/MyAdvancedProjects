@@ -10,6 +10,7 @@
         "data/report_paperformat_data.xml",
         "report/dynamic_pdf_report_templates.xml",
         "views/dynamic_pdf_report_views.xml",
+        "views/dynamic_pdf_report_import_wizard_views.xml",
     ],
     "installable": True,
     "application": False,

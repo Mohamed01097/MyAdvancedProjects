@@ -31,6 +31,12 @@
                         string="Duplicate Design"
                         type="object"
                         invisible="not id"/>
+                    <button
+                        name="action_export_template"
+                        string="Export Template"
+                        type="object"
+                        groups="base.group_system"
+                        invisible="not id"/>
                     <button name="action_apply_template" string="Apply Template" type="object"/>
                     <button name="action_reset_styling" string="Reset Styling" type="object"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,done"/>

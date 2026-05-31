@@ -1,4 +1,6 @@
 import ast
+import base64
+import json
 import re
 
 from odoo import _, api, fields, models
@@ -314,6 +316,172 @@ class DynamicPdfReport(models.Model):
             "view_mode": "form",
             "target": "current",
         }
+
+    def action_export_template(self):
+        self.ensure_one()
+        self._check_template_export_access()
+        payload = self._prepare_export_template_payload()
+        json_content = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        filename = self._get_export_template_filename()
+        attachment = self.env["ir.attachment"].create({
+            "name": filename,
+            "type": "binary",
+            "datas": base64.b64encode(json_content).decode("ascii"),
+            "res_model": self._name,
+            "res_id": self.id,
+            "mimetype": "application/json",
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % attachment.id,
+            "target": "self",
+        }
+
+    def _check_template_export_access(self):
+        if not self.env.user.has_group("base.group_system"):
+            raise UserError(_("Only Settings users can export dynamic report templates."))
+
+    def _prepare_export_template_payload(self):
+        self.ensure_one()
+        return {
+            "version": "1.0",
+            "module": "dynamic_pdf_report_builder",
+            "report": self._prepare_export_report_data(),
+            "fields": self._prepare_export_field_data(),
+            "line_sections": self._prepare_export_line_section_data(),
+            "blocks": self._prepare_export_block_data(),
+            "formulas": self._prepare_export_formula_data(),
+            "groups": self._prepare_export_group_data(),
+            "aggregates": self._prepare_export_aggregate_data(),
+        }
+
+    def _prepare_export_report_data(self):
+        self.ensure_one()
+        return {
+            "name": self.name,
+            "report_title": self.report_title,
+            "model": self.model_name,
+            "styling": {
+                field_name: self[field_name]
+                for field_name in STYLE_DEFAULTS
+            },
+        }
+
+    def _prepare_export_field_data(self):
+        self.ensure_one()
+        return [
+            {
+                "sequence": line.sequence,
+                "field_name": line.field_name,
+                "show_label": line.show_label,
+            }
+            for line in self.field_line_ids.sorted("sequence")
+            if line.field_name
+        ]
+
+    def _prepare_export_line_section_data(self):
+        self.ensure_one()
+        return [
+            {
+                "sequence": section.sequence,
+                "name": section.name,
+                "one2many_field_name": section.one2many_field_name,
+                "show_section_title": section.show_section_title,
+                "line_fields": [
+                    {
+                        "sequence": line.sequence,
+                        "field_name": line.field_name,
+                        "show_label": line.show_label,
+                    }
+                    for line in section.line_field_ids.sorted("sequence")
+                    if line.field_name
+                ],
+            }
+            for section in self.line_section_ids.sorted("sequence")
+            if section.one2many_field_name
+        ]
+
+    def _prepare_export_block_data(self):
+        self.ensure_one()
+        return [
+            {
+                "sequence": block.sequence,
+                "block_type": block.block_type,
+                "title": block.title,
+                "content": block.content,
+                "position": block.position,
+                "alignment": block.alignment,
+                "is_active": block.is_active,
+                "source_type": block.source_type,
+                "source_field_name": block.source_field_id.name if block.source_field_id else False,
+                "static_value": block.static_value,
+                "custom_url_prefix": block.custom_url_prefix,
+                "size": block.size,
+                "signature_label": block.signature_label,
+                "signer_name": block.signer_name,
+                "signer_position": block.signer_position,
+                "show_signature_line": block.show_signature_line,
+                "watermark_text": block.watermark_text,
+                "watermark_opacity": block.watermark_opacity,
+            }
+            for block in self.block_ids.sorted("sequence")
+        ]
+
+    def _prepare_export_formula_data(self):
+        self.ensure_one()
+        formulas = self.with_context(active_test=False).formula_ids.sorted("sequence")
+        return [
+            {
+                "sequence": formula.sequence,
+                "name": formula.name,
+                "code": formula.code,
+                "scope": formula.scope,
+                "line_section_field_name": (
+                    formula.line_section_id.one2many_field_name
+                    if formula.line_section_id else False
+                ),
+                "formula_type": formula.formula_type,
+                "active": formula.active,
+                "formula_expression": formula.formula_expression,
+                "separator": formula.separator,
+                "condition_expression": formula.condition_expression,
+                "true_value": formula.true_value,
+                "false_value": formula.false_value,
+                "output_label": formula.output_label,
+                "show_in_report": formula.show_in_report,
+                "show_in_line_tables": formula.show_in_line_tables,
+            }
+            for formula in formulas
+        ]
+
+    def _prepare_export_group_data(self):
+        self.ensure_one()
+        return [
+            {
+                "sequence": group.sequence,
+                "field_name": group.field_name,
+            }
+            for group in self.group_ids.sorted("sequence")
+            if group.field_name
+        ]
+
+    def _prepare_export_aggregate_data(self):
+        self.ensure_one()
+        return [
+            {
+                "field_name": aggregate.field_name,
+                "aggregate_type": aggregate.aggregate_type,
+            }
+            for aggregate in self.aggregate_ids
+            if aggregate.field_name
+        ]
+
+    def _get_export_template_filename(self):
+        self.ensure_one()
+        model_part = (self.model_name or "model").replace(".", "_")
+        name_part = re.sub(r"[^a-zA-Z0-9_]+", "_", self.name or "report").strip("_").lower()
+        name_part = name_part or "report"
+        return "dynamic_report_template_%s_%s.json" % (model_part, name_part)
 
     def _validate_preview_configuration(self):
         self.ensure_one()
