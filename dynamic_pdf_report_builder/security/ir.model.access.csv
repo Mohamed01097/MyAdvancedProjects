@@ -6,5 +6,6 @@ access_dynamic_pdf_report_formula_system,dynamic.pdf.report.formula system,model
 access_dynamic_pdf_report_group_system,dynamic.pdf.report.group system,model_dynamic_pdf_report_group,base.group_system,1,1,1,1
 access_dynamic_pdf_report_aggregate_system,dynamic.pdf.report.aggregate system,model_dynamic_pdf_report_aggregate,base.group_system,1,1,1,1
 access_dynamic_pdf_report_import_wizard_system,dynamic.pdf.report.import.wizard system,model_dynamic_pdf_report_import_wizard,base.group_system,1,1,1,1
+access_dynamic_pdf_report_library_system,dynamic.pdf.report.library system,model_dynamic_pdf_report_library,base.group_system,1,1,1,1
 access_dynamic_pdf_report_line_section_system,dynamic.pdf.report.line.section system,model_dynamic_pdf_report_line_section,base.group_system,1,1,1,1
 access_dynamic_pdf_report_line_field_system,dynamic.pdf.report.line.field system,model_dynamic_pdf_report_line_field,base.group_system,1,1,1,1

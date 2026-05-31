@@ -593,6 +593,8 @@ class ReportDynamicPdfReport(models.AbstractModel):
             return _("Yes") if value else _("No")
         if field_type == "many2one":
             return value.display_name if value else ""
+        if field_type == "many2many":
+            return ", ".join(value.mapped("display_name")) if value else ""
         if value is False or value is None:
             return ""
         if field_type == "date":

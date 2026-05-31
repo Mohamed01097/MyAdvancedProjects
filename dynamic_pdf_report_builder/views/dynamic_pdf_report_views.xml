@@ -67,7 +67,7 @@
                                     <field name="sequence" widget="handle"/>
                                     <field
                                         name="field_id"
-                                        domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one'])]"
+                                        domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one', 'many2many'])]"
                                     />
                                     <field name="field_description" readonly="1"/>
                                     <field name="field_type" readonly="1"/>
@@ -113,7 +113,7 @@
                                                         <field name="sequence" widget="handle"/>
                                                         <field
                                                             name="field_id"
-                                                            domain="[('model_id', '=', parent.related_model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one'])]"
+                                                            domain="[('model_id', '=', parent.related_model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one', 'many2many'])]"
                                                         />
                                                         <field name="field_description" readonly="1"/>
                                                         <field name="field_type" readonly="1"/>
@@ -265,7 +265,7 @@
                                     <list string="Aggregates" editable="bottom" open_form_view="True">
                                         <field
                                             name="field_id"
-                                            domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one'])]"
+                                            domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one', 'many2many'])]"
                                         />
                                         <field name="field_description" readonly="1"/>
                                         <field name="field_type" readonly="1"/>
@@ -278,7 +278,7 @@
                                                 <group>
                                                     <field
                                                         name="field_id"
-                                                        domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one'])]"
+                                                        domain="[('model_id', '=', parent.model_id), ('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'date', 'datetime', 'boolean', 'selection', 'many2one', 'many2many'])]"
                                                     />
                                                     <field name="aggregate_type"/>
                                                 </group>

@@ -10,6 +10,7 @@ ALLOWED_FIELD_TYPES = (
     "boolean",
     "selection",
     "many2one",
+    "many2many",
 )
 
 BLOCK_SOURCE_FIELD_TYPES = (
