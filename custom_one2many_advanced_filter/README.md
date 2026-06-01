@@ -1,70 +1,63 @@
 # One2Many Advanced Filter
 
-## 🚀 Smart Embedded Filtering for Odoo One2many Lines
+## Smart Embedded Filtering for Odoo One2many Lines
 
-One2Many Advanced Filter brings a modern and powerful filtering experience directly inside Odoo One2many lists.
+**One2Many Advanced Filter** brings a fast, native-style filtering panel directly into Odoo One2many list views. It helps users find the exact lines they need without leaving the form view, reloading the page, or changing the underlying business data.
 
-No more endless scrolling through invoice lines, sale order lines, purchase lines, BOM components, or stock operations.
-
-Filter, search, and explore One2many data instantly — without leaving the form view.
+Use it on invoices, sales orders, purchase orders, stock operations, BOMs, and custom One2many lists where users need to work efficiently with large line datasets.
 
 ---
 
-# ✨ Why This Module?
+## The Problem
 
-In standard Odoo, working with large One2many lists can quickly become painful:
+Standard Odoo One2many lists are simple and reliable, but they can become difficult to use when business documents contain many lines.
 
-- Invoices with 100+ lines
-- Sales Orders with hundreds of products
-- Purchase Orders with large datasets
+Common examples include:
+
+- Large customer invoices with many invoice lines
+- Sales orders with hundreds of products or service lines
+- Purchase orders with long vendor line lists
+- Inventory operations with many stock move lines
 - Manufacturing BOMs with many components
+- Custom ERP forms with dense One2many records
 
-Searching manually inside these lists wastes time and hurts productivity.
-
-This module solves that problem by adding a native-style embedded filtering system directly inside One2many forms.
-
----
-
-# 🔥 Main Features
-
-## ✅ Embedded Component Filters
-
-A modern filter panel directly inside any One2many list.
-
-Works like an inline search/filter engine inside:
-- Invoice Lines
-- Sale Order Lines
-- Purchase Lines
-- Inventory Operations
-- Manufacturing BOM Lines
-- Any One2many list view
+In these cases, users often need to manually scroll through hundreds of rows just to find a product, account, quantity, price, date, note, section, or custom field value. Standard embedded One2many lists do not provide an advanced inline filtering experience inside the form itself.
 
 ---
 
-## ✅ Dynamic Multi-Field Filtering
+## Why This Module?
 
-Filter by any available field dynamically:
+This module adds smart filtering directly inside One2many lists, giving users a familiar Odoo-like experience without disrupting their workflow.
+
+Users can filter, search, highlight, dim, or hide lines while staying on the same form view. The filter runs in the browser UI, so the original One2many data remains untouched and no backend write is performed.
+
+---
+
+## Features
+
+### ✅ Dynamic Field Filtering
+
+Filter by any available supported field shown in the One2many list, including:
 
 - Product
 - Account
 - Analytic
 - Quantity
 - Price
-- Taxes
 - Dates
-- UoM
+- Selection fields
+- Boolean fields
+- Many2one fields
 - Custom fields
-- And more...
 
-No XML customization required.
+The field picker is dynamic and reads the available visible columns from the current One2many list.
 
----
+### ✅ Multiple Operators
 
-## ✅ Advanced Operators
+Use field-aware operators based on the selected field type.
 
-Supports multiple operators depending on field type:
+**Text operators**
 
-### Text Fields
 - contains
 - not contains
 - starts with
@@ -72,7 +65,8 @@ Supports multiple operators depending on field type:
 - =
 - !=
 
-### Numeric Fields
+**Number operators**
+
 - >
 - <
 - >=
@@ -80,209 +74,209 @@ Supports multiple operators depending on field type:
 - =
 - !=
 
-### Boolean Fields
-- True / False
+**Date operators**
 
-### Date Fields
-- Before / After / Equal
+- before
+- after
+- equal
+- not equal
 
----
+**Boolean operators**
 
-## ✅ Global Inline Search
+- True
+- False
 
-Quickly search across all visible columns using a single smart search bar.
+### ✅ Multiple Conditions
 
-Perfect for fast product/account lookups without building advanced filters.
+Build more precise filters with multiple rules:
 
----
-
-## ✅ Multiple Conditions
-
-Create multiple filter conditions with:
 - AND logic
 - OR logic
 
-Build powerful inline filtering combinations easily.
+This makes it easy to find lines that match either broad search scenarios or strict business conditions.
 
----
+### ✅ Global Search
 
-## ✅ Quick Filter Chips
+Search across all visible One2many columns from one compact input.
 
-Fast-access filter chips for common actions:
+- Search across visible columns
+- Fast inline search
+- No page reload
+- Debounced input for a smoother user experience
+
+### ✅ Quick Filter Chips
+
+Apply common filters instantly with quick chips:
 
 - Notes Only
 - Sections Only
 - Products Only
 - Quantity > 0
 
-One click. Instant filtering.
+Quick chips are shown only when the current One2many list supports the related fields.
 
----
+### ✅ Display Modes
 
-## ✅ Display Modes
+Choose how matching and non-matching rows should appear:
 
-Choose how filtered results appear:
+- Hide Non-Matching Lines
+- Highlight Matching Lines
+- Dim Non-Matching Lines
 
-### Hide Non-Matching Lines
-Show only matching rows.
+This allows each user to choose between a focused view or a visual review mode.
 
-### Highlight Matching Lines
-Highlight matching rows while keeping all lines visible.
+### ✅ Sticky Filter Panel
 
-### Dim Non-Matching Lines
-Fade unrelated rows for better visual focus.
+The filter panel remains accessible while scrolling through long One2many lists, so users do not need to jump back to the top of the form to adjust filters.
 
----
+### ✅ Compact Modern UI
 
-## ✅ Real-Time User Experience
+The interface is designed to feel natural inside the Odoo backend:
 
-- No form reload
-- No popup windows
-- No smart button navigation
-- No server requests during filtering
-
-Everything works directly inside the form view.
-
----
-
-## ✅ Modern Compact UI
-
-Designed with a modern Odoo-native experience:
-
+- Native Odoo look
 - Compact layout
-- Soft modern colors
-- Responsive design
-- Sticky filter bar
-- Smooth interactions
-- Enterprise-style usability
+- Modern SaaS-inspired styling
+- Responsive behavior for smaller screens
+- Clear controls for search, conditions, logic, and display mode
+
+### ✅ Result Counter
+
+The panel shows a live result summary, for example:
+
+```text
+Showing X of Y lines
+```
+
+This helps users immediately understand how many lines match the current filter.
+
+### ✅ Section & Note Support
+
+The module supports Odoo display lines:
+
+- `line_section`
+- `line_note`
+
+It can filter sections, notes, product lines, and regular lines while preserving useful context for section-based lists.
+
+### ✅ Generic Architecture
+
+The implementation is generic and works with any supported One2many list view.
+
+It is not limited to a single business model and can be used across standard Odoo apps and custom modules.
 
 ---
 
-# ⚡ Performance Focused
+## Performance
 
-The module was built with performance and stability as a priority.
+One2Many Advanced Filter is designed to be lightweight and fast.
 
-## ✔ No RPC calls during filtering
-## ✔ No database writes
-## ✔ No modification of One2many data
-## ✔ UI-only rendering
-## ✔ Lightweight Owl architecture
-## ✔ Optimized for large datasets
-## ✔ No page reloads
-## ✔ No impact on save behavior
+- No RPC calls during filtering
+- No database writes
+- No page reloads
+- UI-only filtering
+- Original One2many data remains untouched
+- Optimized for large datasets
+- Lightweight Owl implementation
+- Uses cached comparable values for efficient repeated filtering
 
-Supports large One2many datasets smoothly.
-
----
-
-# 🧠 Technical Highlights
-
-- Built using Owl + QWeb
-- Native Odoo backend integration
-- Generic architecture
-- Dynamic field binding
-- Event-driven filtering
-- Safe renderer integration
-- Compatible with editable One2many lists
+Filtering happens in the browser on the currently loaded One2many records. The module changes how rows are displayed in the UI; it does not modify, unlink, or save any records.
 
 ---
 
-# ✅ Compatible Models
+## Supported Models
 
-Works with any One2many list including:
+The module is generic and can work with standard and custom One2many line models, including:
 
-- account.move.line
-- sale.order.line
-- purchase.order.line
-- stock.move.line
-- mrp.bom.line
-- custom One2many models
+- `account.move.line`
+- `sale.order.line`
+- `purchase.order.line`
+- `stock.move.line`
+- `mrp.bom.line`
+- Custom One2many models
 
 ---
 
-# 🎯 Supported Odoo Versions
+## Screenshots
 
+### Compact Filter Panel
+
+![Screenshot](static/description/screenshot_1.png)
+
+### Global Search & Quick Filters
+
+![Screenshot](static/description/screenshot_2.png)
+
+### Display Modes
+
+![Screenshot](static/description/screenshot_3.png)
+
+---
+
+## Live Demo
+
+![Demo](static/description/demo.gif)
+
+---
+
+## Installation
+
+1. Copy the module folder into your Odoo custom addons directory.
+2. Restart the Odoo server.
+3. Activate Developer Mode.
+4. Go to **Apps**.
+5. Click **Update Apps List**.
+6. Search for **One2Many Advanced Filter**.
+7. Install the module.
+
+No additional Python dependency is required.
+
+---
+
+## Compatibility
+
+Compatible with:
+
+- Odoo 17
+- Odoo 18
 - Odoo 19
 
 ---
 
-# 💡 Example Use Cases
+## Technical Notes
 
-## Accounting
-Find invoice lines instantly by:
-- Product
-- Account
-- Quantity
-- Taxes
-
-## Sales
-Filter large Sales Orders quickly.
-
-## Purchase
-Locate vendor items inside huge purchase orders.
-
-## Manufacturing
-Search and filter BOM components instantly.
-
-## Inventory
-Analyze stock operation lines faster.
+- Module technical name: `custom_one2many_advanced_filter`
+- Dependency: `web`
+- Frontend framework: Owl
+- License: LGPL-3
+- Filtering scope: currently loaded One2many list records
+- Data safety: display-only filtering, no automatic writes
 
 ---
 
-# 🛠 Installation
+## Roadmap
 
-1. Copy the module to your custom addons path.
-2. Update Apps List.
-3. Install the module.
-4. Done ✅
-
-No configuration required.
-
----
-
-# 🎨 Native User Experience
-
-The module was designed to feel like a built-in Odoo feature rather than a third-party customization.
-
-Minimal, clean, responsive, and productivity-focused.
-
----
-
-# 🚀 Future Roadmap
-
-Planned future improvements include:
+Planned future enhancements:
 
 - Saved Filter Presets
-- Group By inside One2many
-- Export Filtered Lines
+- Favorites
+- Filter History
 - Column Visibility
+- Export Filtered Data
+- Group By
+- Aggregations
 - Advanced Logic Builder
-- Server-side Filtering
 - AI Smart Search
 
 ---
 
-# 👨‍💻 Developed For Real ERP Workflows
+## License
 
-Built from real-world Odoo implementation pain points experienced across:
-- Accounting
-- Sales
-- Inventory
-- Manufacturing
-- POS Backoffice
-- Integrations
-- Enterprise Deployments
+This module is licensed under **LGPL-3**.
 
 ---
 
-# 📌 License
+## Stop Scrolling. Start Filtering.
 
-LGPL-3
+One2Many Advanced Filter helps Odoo users review large embedded datasets faster, reduce manual scrolling, and stay focused inside the form view.
 
----
-
-# ❤️ Improve Productivity Inside Odoo
-
-Stop scrolling endlessly through One2many lines.
-
-Start filtering smarter.
+Improve productivity across invoices, sales orders, purchase orders, inventory operations, BOM components, and custom ERP workflows with smart embedded filtering for One2many lines.
