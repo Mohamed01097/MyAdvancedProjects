@@ -11,6 +11,7 @@
         "data/report_library_data.xml",
         "report/dynamic_pdf_report_templates.xml",
         "views/dynamic_pdf_report_views.xml",
+        "views/dynamic_pdf_report_suggestion_wizard_views.xml",
         "views/dynamic_pdf_report_import_wizard_views.xml",
         "views/dynamic_pdf_report_library_views.xml",
     ],

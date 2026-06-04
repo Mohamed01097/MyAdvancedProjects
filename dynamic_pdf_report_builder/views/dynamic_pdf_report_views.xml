@@ -32,6 +32,12 @@
                         type="object"
                         invisible="not id"/>
                     <button
+                        name="action_suggest_report_structure"
+                        string="Suggest Report Structure"
+                        type="object"
+                        groups="base.group_system"
+                        invisible="not id or not model_id"/>
+                    <button
                         name="action_export_template"
                         string="Export Template"
                         type="object"

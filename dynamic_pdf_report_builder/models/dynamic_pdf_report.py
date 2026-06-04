@@ -281,6 +281,35 @@ class DynamicPdfReport(models.Model):
             report.write(dict(TEMPLATE_PRESET_VALUES[report.template_preset]))
         return True
 
+    def action_suggest_report_structure(self):
+        self.ensure_one()
+        self._check_suggestion_assistant_access()
+        if not self.id:
+            raise UserError(_("Save the report before using the Smart Report Assistant."))
+        if not self.model_id:
+            raise UserError(_("Select a model before using the Smart Report Assistant."))
+
+        wizard = self.env["dynamic.pdf.report.suggestion.wizard"].create({
+            "report_id": self.id,
+        })
+        wizard._generate_suggestions()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Suggest Report Structure"),
+            "res_model": "dynamic.pdf.report.suggestion.wizard",
+            "res_id": wizard.id,
+            "view_mode": "form",
+            "views": [(
+                self.env.ref("dynamic_pdf_report_builder.view_dynamic_pdf_report_suggestion_wizard_form").id,
+                "form",
+            )],
+            "target": "new",
+        }
+
+    def _check_suggestion_assistant_access(self):
+        if not self.env.user.has_group("base.group_system"):
+            raise UserError(_("Only Settings users can use the Smart Report Assistant."))
+
     def action_reset_styling(self):
         for report in self:
             report.write(dict(STYLE_DEFAULTS))
