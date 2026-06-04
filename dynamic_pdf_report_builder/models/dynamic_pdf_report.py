@@ -191,6 +191,15 @@ class DynamicPdfReport(models.Model):
     )
     last_generated_on = fields.Datetime(readonly=True, copy=False)
     last_generated_by = fields.Many2one("res.users", readonly=True, copy=False)
+    print_count = fields.Integer(readonly=True, default=0, copy=False)
+    last_printed_on = fields.Datetime(readonly=True, copy=False)
+    last_printed_by = fields.Many2one("res.users", readonly=True, copy=False)
+    print_log_count = fields.Integer(compute="_compute_print_log_count")
+
+    def _compute_print_log_count(self):
+        PrintLog = self.env["dynamic.pdf.report.print.log"].sudo()
+        for report in self:
+            report.print_log_count = PrintLog.search_count([("report_id", "=", report.id)]) if report.id else 0
 
     @api.onchange("model_id")
     def _onchange_model_id(self):
@@ -310,6 +319,18 @@ class DynamicPdfReport(models.Model):
         if not self.env.user.has_group("base.group_system"):
             raise UserError(_("Only Settings users can use the Smart Report Assistant."))
 
+    def action_open_print_logs(self):
+        self.ensure_one()
+        if not self.env.user.has_group("base.group_system"):
+            raise UserError(_("Only Settings users can view dynamic report print logs."))
+        action = self.env.ref("dynamic_pdf_report_builder.action_dynamic_pdf_report_print_log").read()[0]
+        action["domain"] = [("report_id", "=", self.id)]
+        action["context"] = {
+            "default_report_id": self.id,
+            "search_default_group_by_user": 1,
+        }
+        return action
+
     def action_reset_styling(self):
         for report in self:
             report.write(dict(STYLE_DEFAULTS))
@@ -328,7 +349,10 @@ class DynamicPdfReport(models.Model):
         })
 
         preview_record = self._get_preview_record()
-        return action.with_context(dynamic_pdf_report_id=self.id).report_action(preview_record, config=False)
+        return action.with_context(
+            dynamic_pdf_report_id=self.id,
+            dynamic_pdf_report_source="preview",
+        ).report_action(preview_record, config=False)
 
     def action_duplicate_design(self):
         self.ensure_one()
@@ -786,7 +810,7 @@ class DynamicPdfReport(models.Model):
             "binding_model_id": self.model_id.id,
             "binding_type": "report",
             "binding_view_types": "list,form",
-            "context": "{'dynamic_pdf_report_id': %d}" % self.id,
+            "context": "{'dynamic_pdf_report_id': %d, 'dynamic_pdf_report_source': 'print_menu'}" % self.id,
             "paperformat_id": self._get_paperformat().id,
             "dynamic_pdf_report_id": self.id,
         }
