@@ -336,43 +336,44 @@ class UserRestriction(models.Model):
         self.env.registry.clear_cache()
 
     @api.model
-    def get_ui_restrictions(self, model_name, res_ids=None):
+    def get_ui_restrictions(self, model_name, res_id=False):
         result = {
-            'prevent_create': False,
-            'prevent_edit': False,
-            'prevent_delete': False,
-            'prevent_duplicate': False,
-            'prevent_export': False,
-            'prevent_archive': False,
-            'prevent_import': False,
+            'hide_restricted_buttons': False,
+            **{field_name: False for field_name in UI_ACTION_FIELDS.values()},
         }
-
-        if not model_name or model_name not in self.env:
+        if not model_name:
             return result
 
-        restrictions = self.sudo().search(
-            self._get_applicable_restriction_domain(model_name)
-            + [('hide_restricted_buttons', '=', True)]
+        Model = self.env.get(model_name)
+        if Model is None:
+            return result
+        if hasattr(Model, '_skip_dynamic_restriction') and Model._skip_dynamic_restriction():
+            return result
+
+        user = self.env.user
+        group_ids = user.all_group_ids.ids if 'all_group_ids' in user._fields else user.groups_id.ids
+        restrictions = self.sudo().search([
+            ('active', '=', True),
+            ('model_ids.model', '=', model_name),
+            ('hide_restricted_buttons', '=', True),
+            ('use_domain', '=', False),
+            '|',
+            ('user_ids', 'in', [self.env.uid]),
+            ('group_ids', 'in', group_ids),
+            '|',
+            ('company_ids', '=', False),
+            ('company_ids', 'in', [self.env.company.id]),
+        ])
+        restrictions = restrictions.filtered(
+            lambda restriction: Model._dynamic_restriction_matches_context(restriction)
         )
-        if not restrictions:
-            return result
-
-        Model = self.env[model_name]
-        record_ids = [record_id for record_id in (res_ids or []) if record_id]
-        records = Model.browse(record_ids).exists() if record_ids else Model.browse()
-        target = records if records else Model.browse()
 
         for restriction in restrictions:
-            if not Model._dynamic_restriction_matches_context(restriction):
-                continue
-            for action_name, field_name in UI_ACTION_FIELDS.items():
-                if result[field_name] or not getattr(restriction, field_name):
+            result['hide_restricted_buttons'] = True
+            for field_name in UI_ACTION_FIELDS.values():
+                if result[field_name] or not restriction[field_name]:
                     continue
-                if target._dynamic_restriction_matches_records(restriction, action_name):
-                    result[field_name] = True
-                    continue
-                if not restriction.use_domain and not records:
-                    result[field_name] = True
+                result[field_name] = True
 
         return result
 
