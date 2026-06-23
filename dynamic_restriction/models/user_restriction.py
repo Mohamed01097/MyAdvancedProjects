@@ -1,7 +1,7 @@
 import ipaddress
 import pytz
 
-from odoo import _, api, fields, models
+from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.fields import Domain
 from odoo.tools.safe_eval import safe_eval
@@ -134,6 +134,16 @@ class UserRestriction(models.Model):
     hide_restricted_buttons = fields.Boolean(
         string='Hide Restricted Buttons',
         default=False,
+    )
+    button_rule_ids = fields.One2many(
+        'dynamic.restriction.button',
+        'restriction_id',
+        string='Button Restrictions',
+    )
+    tab_rule_ids = fields.One2many(
+        'dynamic.restriction.tab',
+        'restriction_id',
+        string='Tab Restrictions',
     )
     own_documents_only = fields.Boolean(string='Own Documents Only')
     owner_field_id = fields.Many2one(
@@ -313,6 +323,17 @@ class UserRestriction(models.Model):
                 if not field.store:
                     raise UserError(_('Readonly restriction can only be applied to stored fields.'))
 
+    @api.constrains('model_ids', 'button_rule_ids', 'tab_rule_ids')
+    def _check_view_element_model_scope(self):
+        for restriction in self:
+            restriction_with_inactive = restriction.with_context(active_test=False)
+            if not restriction_with_inactive.button_rule_ids and not restriction_with_inactive.tab_rule_ids:
+                continue
+            if len(restriction.model_ids) != 1:
+                raise UserError(
+                    _('Button and Tab restrictions require exactly one model on the main restriction.')
+                )
+
     @api.constrains('use_time_restriction', 'time_from', 'time_to')
     def _check_time_window(self):
         for restriction in self:
@@ -334,6 +355,151 @@ class UserRestriction(models.Model):
 
     def _clear_dynamic_restriction_cache(self):
         self.env.registry.clear_cache()
+
+    def action_load_view_elements(self):
+        models_to_scan = self.mapped('model_ids')
+        if not models_to_scan:
+            raise UserError(_('Select at least one model before loading view elements.'))
+
+        scanner = self.env['dynamic.view.element.mixin']
+        Button = self.env['dynamic.view.button'].sudo()
+        Tab = self.env['dynamic.view.tab'].sudo()
+        button_created = button_updated = tab_created = tab_updated = 0
+
+        for model in models_to_scan:
+            buttons, tabs = scanner._collect_form_view_elements(model)
+            created, updated = Button._upsert_for_model(model, buttons)
+            button_created += created
+            button_updated += updated
+            created, updated = Tab._upsert_for_model(model, tabs)
+            tab_created += created
+            tab_updated += updated
+
+        has_multi_model_restriction = any(len(restriction.model_ids) > 1 for restriction in self)
+        message = _(
+            'Buttons: %(button_created)s created, %(button_updated)s updated. '
+            'Tabs: %(tab_created)s created, %(tab_updated)s updated.'
+        ) % {
+            'button_created': button_created,
+            'button_updated': button_updated,
+            'tab_created': tab_created,
+            'tab_updated': tab_updated,
+        }
+        if has_multi_model_restriction:
+            message = '%s %s' % (
+                message,
+                _('Button and Tab restrictions require exactly one model on the main restriction.'),
+            )
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('View Elements Loaded'),
+                'message': message,
+                'type': 'warning' if has_multi_model_restriction else 'success',
+                'sticky': False,
+            },
+        }
+
+    @api.model
+    def scan_view_elements(self, model_name):
+        model = self.env['ir.model'].sudo().search([('model', '=', model_name)], limit=1)
+        if not model:
+            return {
+                'buttons': [],
+                'tabs': [],
+            }
+
+        buttons, tabs = self.env['dynamic.view.element.mixin']._collect_form_view_elements(model)
+        self.env['dynamic.view.button'].sudo()._upsert_for_model(model, buttons)
+        self.env['dynamic.view.tab'].sudo()._upsert_for_model(model, tabs)
+        return {
+            'buttons': [
+                {'name': technical_name, 'label': display_label or technical_name}
+                for technical_name, display_label in buttons.items()
+            ],
+            'tabs': [
+                {'name': technical_name, 'label': display_label or technical_name}
+                for technical_name, display_label in tabs.items()
+            ],
+        }
+
+    @api.model
+    def _is_view_ui_restriction_admin(self):
+        if self.env.su or self.env.uid == SUPERUSER_ID:
+            return True
+        return self.env.user.has_group('base.group_system')
+
+    @api.model
+    def _get_view_ui_parent_restrictions(self, model_name):
+        user = self.env['res.users'].sudo().browse(self.env.uid)
+        group_field = user.all_group_ids if 'all_group_ids' in user._fields else user.groups_id
+        group_ids = group_field.ids
+        scope_domain = Domain.OR([
+            [('user_ids', 'in', [self.env.uid])],
+            [('group_ids', 'in', group_ids)] if group_ids else [('id', '=', 0)],
+        ])
+        company_domain = Domain.OR([
+            [('company_ids', '=', False)],
+            [('company_ids', 'in', [self.env.company.id])],
+        ])
+        return self.sudo().search(Domain.AND([
+            [
+                ('active', '=', True),
+                ('model_ids.model', '=', model_name),
+            ],
+            scope_domain,
+            company_domain,
+        ]))
+
+    @api.model
+    def _get_view_rule_payload(self, rules, name_field, label_field, element_field):
+        values = []
+        seen = set()
+
+        for rule in rules.filtered('active'):
+            element = rule[element_field]
+            rule_name = (rule[name_field] or element.technical_name or '').strip()
+            if not rule_name or rule_name in seen:
+                continue
+
+            seen.add(rule_name)
+            values.append({
+                'name': rule_name,
+                'label': (rule[label_field] or element.display_label or rule_name).strip(),
+            })
+
+        return values
+
+    @api.model
+    def get_view_ui_restrictions(self, model_name):
+        # No ormcache here: matching depends on current user/group/company membership.
+        result = {
+            'buttons': [],
+            'tabs': [],
+        }
+        if not model_name or self._is_view_ui_restriction_admin():
+            return result
+        if self.env.get(model_name) is None:
+            return result
+
+        restrictions = self._get_view_ui_parent_restrictions(model_name)
+        result.update({
+            'buttons': self._get_view_rule_payload(
+                restrictions.mapped('button_rule_ids'),
+                'button_name',
+                'button_label',
+                'button_element_id',
+            ),
+            'tabs': self._get_view_rule_payload(
+                restrictions.mapped('tab_rule_ids'),
+                'tab_name',
+                'tab_label',
+                'tab_element_id',
+            ),
+        })
+        return result
 
     @api.model
     def get_ui_restrictions(self, model_name, res_id=False):

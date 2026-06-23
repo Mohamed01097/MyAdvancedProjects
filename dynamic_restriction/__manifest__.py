@@ -51,6 +51,7 @@ Compatible with Odoo 17, Odoo 18, and Odoo 19.
     'assets': {
         'web.assets_backend': [
             'dynamic_restriction/static/src/js/ui_restriction.js',
+            'dynamic_restriction/static/src/js/view_element_restrictions.js',
         ],
     },
     'demo': [

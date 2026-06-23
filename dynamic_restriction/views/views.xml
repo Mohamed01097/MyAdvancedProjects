@@ -36,6 +36,12 @@
             <field name="model">user.restrict</field>
             <field name="arch" type="xml">
                 <form string="Dynamic Restrictions">
+                    <header>
+                        <button name="action_load_view_elements"
+                                type="object"
+                                string="Load View Elements"
+                                class="btn-primary"/>
+                    </header>
                     <sheet>
                         <group>
                             <group string="Restriction">
@@ -121,6 +127,42 @@
                         <group string="User Interface">
                             <field name="hide_restricted_buttons"/>
                         </group>
+                        <notebook>
+                            <page string="Button Restrictions">
+                                <p class="text-muted">
+                                    Buttons and tabs inherit Model, Users, Groups, and Companies from the main restriction.
+                                </p>
+                                <field name="button_rule_ids">
+                                    <list editable="bottom">
+                                        <field name="active"/>
+                                        <field name="button_element_id"
+                                               domain="[('model_id', 'in', parent.model_ids)]"
+                                               required="not button_name"
+                                               options="{'no_create': True, 'no_open': True}"/>
+                                        <field name="button_name" required="not button_element_id"/>
+                                        <field name="button_label"/>
+                                        <field name="description"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Tab Restrictions">
+                                <p class="text-muted">
+                                    Buttons and tabs inherit Model, Users, Groups, and Companies from the main restriction.
+                                </p>
+                                <field name="tab_rule_ids">
+                                    <list editable="bottom">
+                                        <field name="active"/>
+                                        <field name="tab_element_id"
+                                               domain="[('model_id', 'in', parent.model_ids)]"
+                                               required="not tab_name"
+                                               options="{'no_create': True, 'no_open': True}"/>
+                                        <field name="tab_name" required="not tab_element_id"/>
+                                        <field name="tab_label"/>
+                                        <field name="description"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
                     </sheet>
                 </form>
             </field>
